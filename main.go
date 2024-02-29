@@ -1,15 +1,19 @@
 package main
 
-import (
-	"myapp/api"
-
-	"fyne.io/fyne/v2/app"
-)
-
 func main() {
-	api.CallAPI()
+	//api.CallAPI()
 
-	a := app.New()
-	w := a.NewWindow("Salut")
-	w.ShowAndRun()
+	//a := app.New()
+	//w := a.NewWindow("Salut")
+	//w.Resize(fyne.NewSize(600, 800))
+	//
+	//searchEntry := widget.NewEntry()
+	//searchEntry.SetPlaceHolder("Entrez votre recherche ici")
+	//
+	//content := container.NewVBox(
+	//	searchEntry,
+	//)
+	//
+	//w.SetContent(content)
+	//w.ShowAndRun()
 }

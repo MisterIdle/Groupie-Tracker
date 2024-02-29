@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type APIURLs struct {
@@ -32,69 +33,86 @@ type Relation struct {
 }
 
 func CallAPI() {
-	apiURL := "https://groupietrackers.herokuapp.com/api"
+	for {
+		apiURL := "https://groupietrackers.herokuapp.com/api"
 
-	data, err := fetchData(apiURL)
-	if err != nil {
-		fmt.Println("Erreur lors de la récupération des données:", err)
-		return
-	}
-
-	var apiURLs APIURLs
-	err = json.Unmarshal(data, &apiURLs)
-	if err != nil {
-		fmt.Println("Erreur lors de l'analyse du JSON:", err)
-		return
-	}
-
-	artistsData, err := fetchData(apiURLs.Artists)
-	if err != nil {
-		fmt.Println("Erreur lors de la récupération des données des artistes:", err)
-		return
-	}
-
-	var artists []Artist
-	err = json.Unmarshal(artistsData, &artists)
-	if err != nil {
-		fmt.Println("Erreur lors de l'analyse du JSON des artistes:", err)
-		return
-	}
-
-	relationsData, err := fetchData(apiURLs.Relations)
-	if err != nil {
-		fmt.Println("Erreur lors de la récupération des données des relations:", err)
-		return
-	}
-
-	var relation Relation
-	err = json.Unmarshal(relationsData, &relation)
-	if err != nil {
-		fmt.Println("Erreur lors de l'analyse du JSON des relations:", err)
-		return
-	}
-
-	var inputID int
-	fmt.Print("Veuillez saisir l'ID du groupe : ")
-	_, err = fmt.Scan(&inputID)
-	if err != nil {
-		fmt.Println("Erreur lors de la saisie de l'ID du groupe:", err)
-		return
-	}
-
-	found := false
-	for _, artist := range artists {
-		if artist.ID == inputID {
-			printArtistDetails(apiURLs, artist)
-			printLocationDetails(apiURLs.Locations, artist.Locations)
-			printDateDetails(apiURLs.Dates, artist.ConcertDates)
-
-			found = true
-			break
+		data, err := fetchData(apiURL)
+		if err != nil {
+			fmt.Println("Erreur lors de la récupération des données:", err)
+			return
 		}
-	}
 
-	if !found {
-		fmt.Println("Aucun artiste trouvé avec l'ID spécifié.")
+		var apiURLs APIURLs
+		err = json.Unmarshal(data, &apiURLs)
+		if err != nil {
+			fmt.Println("Erreur lors de l'analyse du JSON:", err)
+			return
+		}
+
+		artistsData, err := fetchData(apiURLs.Artists)
+		if err != nil {
+			fmt.Println("Erreur lors de la récupération des données des artistes:", err)
+			return
+		}
+
+		var artists []Artist
+		err = json.Unmarshal(artistsData, &artists)
+		if err != nil {
+			fmt.Println("Erreur lors de l'analyse du JSON des artistes:", err)
+			return
+		}
+
+		relationsData, err := fetchData(apiURLs.Relations)
+		if err != nil {
+			fmt.Println("Erreur lors de la récupération des données des relations:", err)
+			return
+		}
+
+		var relation Relation
+		err = json.Unmarshal(relationsData, &relation)
+		if err != nil {
+			fmt.Println("Erreur lors de l'analyse du JSON des relations:", err)
+			return
+		}
+
+		var inputName string
+		fmt.Print("Veuillez saisir le nom du groupe ou d'un membre : ")
+		_, err = fmt.Scan(&inputName)
+		if err != nil {
+			fmt.Println("Erreur lors de la saisie du nom du groupe ou d'un membre:", err)
+			return
+		}
+
+		suggestions := make([]Artist, 0)
+
+		for _, artist := range artists {
+			if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(inputName)) {
+				suggestions = append(suggestions, artist)
+			} else {
+				for _, member := range artist.Members {
+					if strings.Contains(strings.ToLower(member), strings.ToLower(inputName)) {
+						suggestions = append(suggestions, artist)
+						break
+					}
+				}
+			}
+		}
+
+		if len(suggestions) == 0 {
+			fmt.Println("Aucun artiste trouvé avec le nom spécifié ou partiel.")
+			continue // Recommencer la boucle si aucune suggestion n'est trouvée
+		}
+
+		if len(suggestions) == 1 {
+			printArtistDetails(apiURLs, suggestions[0])
+			break // Sortir de la boucle si le nom complet est trouvé dans les suggestions
+		}
+
+		fmt.Println("Suggestions :")
+		for _, suggestion := range suggestions {
+			fmt.Printf("- Nom du groupe: %s\n", suggestion.Name)
+			fmt.Printf("  Membres: %v\n", suggestion.Members)
+		}
 	}
 }
 
