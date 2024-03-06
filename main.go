@@ -1,7 +1,9 @@
 package main
 
 import (
-	"sort"
+	"encoding/json"
+	"fmt"
+	"net/http"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -11,67 +13,116 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// Fonction pour calculer la similarité entre deux chaînes
-func similarity(query, name string) int {
-	return len(name) - len(strings.ReplaceAll(strings.ToLower(name), strings.ToLower(query), ""))
+// Artist représente un artiste
+type Artist struct {
+	ID           int      `json:"id"`
+	Image        string   `json:"image"`
+	Name         string   `json:"name"`
+	Members      []string `json:"members"`
+	CreationDate int      `json:"creationDate"`
+	FirstAlbum   string   `json:"firstAlbum"`
+	Locations    string   `json:"locations"`
+	ConcertDates string   `json:"concertDates"`
+	Relations    string   `json:"relations"`
 }
 
-func main() {
-	myApp := app.New()
-	window := myApp.NewWindow("Groupie Tracker")
-	window.Resize(fyne.NewSize(800, 600))
+// fetchArtists récupère les données des artistes depuis l'API
+func fetchArtists() ([]Artist, error) {
+	resp, err := http.Get("https://groupietrackers.herokuapp.com/api/artists")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-	artistNames := []string{
-		"Vincent van Gogh", "Pablo Picasso", "Leonardo da Vinci", "Claude Monet",
-		"Michelangelo", "Frida Kahlo", "Georgia O'Keeffe", "Salvador Dalí",
-		"Andy Warhol", "Jackson Pollock", "Henri Matisse", "Wassily Kandinsky",
-		"Gustav Klimt", "Edvard Munch", "René Magritte", "Marc Chagall",
-		"Joan Miró", "Paul Cézanne", "Rembrandt van Rijn", "Banksy",
-		"Keith Haring", "Jean-Michel Basquiat", "Yayoi Kusama", "Cindy Sherman",
-		"Ai Weiwei", "Damien Hirst", "Anish Kapoor", "Jeff Koons",
-		"Tracey Emin", "Marina Abramović", "Eminem",
+	var artists []Artist
+	err = json.NewDecoder(resp.Body).Decode(&artists)
+	if err != nil {
+		return nil, err
 	}
 
-	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Search for an artist")
+	return artists, nil
+}
 
-	suggestionBox := container.NewVBox()
-
-	updateSuggestions := func(query string) {
-		suggestionBox.Objects = nil
-
-		if query != "" {
-			// Trie les suggestions en fonction de leur similarité avec la requête
-			sortedArtists := make([]string, len(artistNames))
-			copy(sortedArtists, artistNames)
-			sort.Slice(sortedArtists, func(i, j int) bool {
-				return similarity(query, sortedArtists[i]) > similarity(query, sortedArtists[j])
-			})
-
-			// Ajoute les suggestions à la boîte de suggestions jusqu'au maximum possible en fonction de leur similarité
-			maxSuggestions := 5
-			for _, name := range sortedArtists {
-				if similarity(query, name) <= 0 {
-					break
-				}
-				suggestionBox.Add(widget.NewLabel(name))
-				maxSuggestions--
-				if maxSuggestions == 0 {
+// Fonction pour filtrer les artistes et les groupes
+func filterArtistsAndGroups(query string, artists []Artist) []Artist {
+	var filtered []Artist
+	for _, artist := range artists {
+		if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
+			filtered = append(filtered, artist)
+		} else {
+			for _, member := range artist.Members {
+				if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
+					filtered = append(filtered, artist)
 					break
 				}
 			}
 		}
+	}
+	return filtered
+}
 
+// Fonction pour mettre à jour les suggestions d'artistes et de groupes
+func updateSuggestions(query string, artists []Artist, suggestionBox *fyne.Container) {
+	suggestionBox.Objects = nil
+
+	if query != "" {
+		filtered := filterArtistsAndGroups(query, artists)
+		for _, item := range filtered {
+			if len(suggestionBox.Objects) >= 6 {
+				break
+			}
+			labelText := fmt.Sprintf("%s", item.Name)
+			if len(item.Members) > 0 {
+				labelText += " (" + strings.Join(item.Members, ", ") + ")"
+			}
+			button := widget.NewButton(labelText, func() {})
+			button.Importance = widget.HighImportance
+			button.Alignment = widget.ButtonAlignLeading
+			button.SetIcon(theme.VolumeDownIcon())
+
+			suggestionBox.Add(button)
+		}
+	}
+}
+
+// RunGroupieTracker lance l'application Groupie Tracker
+func RunGroupieTracker() error {
+	myApp := app.New()
+	window := myApp.NewWindow("Groupie Tracker")
+	window.Resize(fyne.NewSize(800, 600))
+
+	var artists []Artist
+	var err error
+	if artists, err = fetchArtists(); err != nil {
+		return fmt.Errorf("failed to fetch artists: %w", err)
+	}
+
+	searchEntry := widget.NewEntry()
+	searchEntry.SetPlaceHolder("Search for an artist or a band")
+	searchEntry.Resize(fyne.NewSize(400, 40)) // Ajuster la taille de la barre de recherche
+
+	suggestionBox := container.NewVBox()
+	suggestionBox.Resize(fyne.NewSize(400, 400)) // Ajuster la taille de la boîte de suggestions
+
+	searchEntry.OnChanged = func(query string) {
+		updateSuggestions(query, artists, suggestionBox)
 		window.Content().Refresh()
 	}
 
-	searchEntry.OnChanged = func(query string) {
-		updateSuggestions(query)
-	}
-
-	containerBox := container.NewVBox(searchEntry, suggestionBox)
+	containerBox := container.NewVBox(
+		searchEntry,
+		suggestionBox,
+	)
 
 	window.SetContent(containerBox)
 	window.SetIcon(theme.VolumeUpIcon())
 	window.ShowAndRun()
+
+	return nil
+}
+
+func main() {
+	if err := RunGroupieTracker(); err != nil {
+		fmt.Println("Failed to run Groupie Tracker:", err)
+	}
 }
