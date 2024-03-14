@@ -3,17 +3,20 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"image/color"
+	"io"
+	"log"
 	"net/http"
-	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
-// Artist représente un artiste
 type Artist struct {
 	ID           int      `json:"id"`
 	Image        string   `json:"image"`
@@ -26,7 +29,63 @@ type Artist struct {
 	Relations    string   `json:"relations"`
 }
 
-// fetchArtists récupère les données des artistes depuis l'API
+type TappableCard struct {
+	*fyne.Container
+}
+
+func main() {
+	a := app.New()
+	w := a.NewWindow("Groupie Tracker")
+	w.Resize(fyne.NewSize(800, 600))
+	w.SetFixedSize(true)
+	w.SetIcon(theme.VolumeUpIcon())
+
+	label := widget.NewLabelWithStyle("Groupie Tracker", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	search := widget.NewEntry()
+	search.SetPlaceHolder("Search a group or artist")
+
+	suggestionsBox := container.New(layout.NewCenterLayout(),
+		canvas.NewRectangle(color.Black),
+		widget.NewLabel("Suggestions"),
+	)
+	suggestionsBox.Hide()
+
+	artists, err := fetchArtists()
+	if err != nil {
+		log.Fatal("Error fetching artists:", err)
+	}
+
+	header := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
+		container.NewVBox(
+			label,
+			container.NewVBox(
+				search,
+			),
+			suggestionsBox,
+		),
+	)
+
+	content := container.New(layout.NewBorderLayout(header, nil, nil, nil),
+		header,
+		container.NewVScroll(container.NewGridWithColumns(4,
+			createArtistCards(artists)...,
+		)),
+	)
+
+	w.SetContent(content)
+
+	search.OnChanged = func(s string) {
+		if s == "" {
+			suggestionsBox.Hide()
+		} else {
+			suggestionsBox.Show()
+		}
+	}
+
+	w.ShowAndRun()
+}
+
 func fetchArtists() ([]Artist, error) {
 	resp, err := http.Get("https://groupietrackers.herokuapp.com/api/artists")
 	if err != nil {
@@ -35,94 +94,63 @@ func fetchArtists() ([]Artist, error) {
 	defer resp.Body.Close()
 
 	var artists []Artist
-	err = json.NewDecoder(resp.Body).Decode(&artists)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
+	err = json.Unmarshal(body, &artists)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println(artists)
+
 	return artists, nil
 }
 
-// Fonction pour filtrer les artistes et les groupes
-func filterArtistsAndGroups(query string, artists []Artist) []Artist {
-	var filtered []Artist
+func createArtistCards(artists []Artist) []fyne.CanvasObject {
+	var cards []fyne.CanvasObject
+
 	for _, artist := range artists {
-		if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
-			filtered = append(filtered, artist)
-		} else {
-			for _, member := range artist.Members {
-				if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
-					filtered = append(filtered, artist)
-					break
-				}
-			}
+		card := createCard(artist)
+		if card != nil {
+			cards = append(cards, card)
 		}
 	}
-	return filtered
+
+	return cards
 }
 
-// Fonction pour mettre à jour les suggestions d'artistes et de groupes
-func updateSuggestions(query string, artists []Artist, suggestionBox *fyne.Container) {
-	suggestionBox.Objects = nil
-
-	if query != "" {
-		filtered := filterArtistsAndGroups(query, artists)
-		for _, item := range filtered {
-			if len(suggestionBox.Objects) >= 6 {
-				break
-			}
-			labelText := fmt.Sprintf("%s", item.Name)
-			if len(item.Members) > 0 {
-				labelText += " (" + strings.Join(item.Members, ", ") + ")"
-			}
-			button := widget.NewButton(labelText, func() {})
-			button.Importance = widget.HighImportance
-			button.Alignment = widget.ButtonAlignLeading
-			button.SetIcon(theme.VolumeDownIcon())
-
-			suggestionBox.Add(button)
-		}
-	}
-}
-
-// RunGroupieTracker lance l'application Groupie Tracker
-func RunGroupieTracker() error {
-	myApp := app.New()
-	window := myApp.NewWindow("Groupie Tracker")
-	window.Resize(fyne.NewSize(800, 600))
-
-	var artists []Artist
-	var err error
-	if artists, err = fetchArtists(); err != nil {
-		return fmt.Errorf("failed to fetch artists: %w", err)
+func createCard(artist Artist) fyne.CanvasObject {
+	res, err := fyne.LoadResourceFromURLString(artist.Image)
+	if err != nil {
+		log.Printf("Error loading image: %v\n", err)
+		return nil
 	}
 
-	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Search for an artist or a band")
-	searchEntry.Resize(fyne.NewSize(400, 40)) // Ajuster la taille de la barre de recherche
+	image := canvas.NewImageFromResource(res)
+	image.FillMode = canvas.ImageFillContain
+	image.SetMinSize(fyne.NewSize(200, 200))
 
-	suggestionBox := container.NewVBox()
-	suggestionBox.Resize(fyne.NewSize(400, 400)) // Ajuster la taille de la boîte de suggestions
+	name := widget.NewLabel(artist.Name)
+	name.Alignment = fyne.TextAlignCenter
+	name.TextStyle = fyne.TextStyle{Bold: true}
 
-	searchEntry.OnChanged = func(query string) {
-		updateSuggestions(query, artists, suggestionBox)
-		window.Content().Refresh()
-	}
+	border := canvas.NewRectangle(color.Transparent)
+	border.StrokeColor = color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	border.StrokeWidth = 3
 
-	containerBox := container.NewVBox(
-		searchEntry,
-		suggestionBox,
+	// Conteneur pour la carte avec contour et contenu
+	card := container.NewBorder(nil, nil, nil, nil,
+		container.NewVBox(
+			container.NewCenter(image),
+			container.New(layout.NewVBoxLayout(),
+				container.NewCenter(name),
+			),
+		),
+		border,
 	)
 
-	window.SetContent(containerBox)
-	window.SetIcon(theme.VolumeUpIcon())
-	window.ShowAndRun()
-
-	return nil
-}
-
-func main() {
-	if err := RunGroupieTracker(); err != nil {
-		fmt.Println("Failed to run Groupie Tracker:", err)
-	}
+	return card
 }
