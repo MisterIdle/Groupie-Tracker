@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -31,7 +32,7 @@ type Artist struct {
 func main() {
 	a := app.New()
 	w := a.NewWindow("Groupie Tracker")
-	w.Resize(fyne.NewSize(800, 600))
+	w.Resize(fyne.NewSize(1000, 600))
 	w.SetFixedSize(true)
 	w.SetIcon(theme.VolumeUpIcon())
 
@@ -40,16 +41,12 @@ func main() {
 	search := widget.NewEntry()
 	search.SetPlaceHolder("Search a group or artist")
 
-	suggestionsBox := container.New(layout.NewCenterLayout(),
-		canvas.NewRectangle(color.Black),
-		widget.NewLabel("Suggestions"),
-	)
-	suggestionsBox.Hide()
-
 	artists, err := fetchArtists()
 	if err != nil {
 		log.Fatal("Error fetching artists:", err)
 	}
+
+	suggestionsBox := container.NewVBox()
 
 	header := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
 		container.NewVBox(
@@ -70,16 +67,38 @@ func main() {
 
 	w.SetContent(content)
 
-	search.OnChanged = func(s string) {
-		if s == "" {
-			suggestionsBox.Hide()
-		} else {
-			suggestionsBox.Show()
-		}
+	search.OnChanged = func(query string) {
+		updateSuggestions(query, artists, suggestionsBox)
 	}
 
 	w.ShowAndRun()
 }
+
+// Suggestions box
+
+func updateSuggestions(query string, artists []Artist, suggestionBox *fyne.Container) {
+	suggestionBox.Objects = nil
+
+	if query != "" {
+		filtered := filterArtistsAndGroups(query, artists)
+		for _, item := range filtered {
+			if len(suggestionBox.Objects) >= 6 {
+				break
+			}
+			labelText := item.Name
+			if len(item.Members) > 0 {
+				labelText += " (" + strings.Join(item.Members, ", ") + ")"
+			}
+			button := widget.NewButton(labelText, func() {})
+			button.Importance = widget.HighImportance
+			button.Alignment = widget.ButtonAlignLeading
+
+			suggestionBox.Add(button)
+		}
+	}
+}
+
+// API functions
 
 func fetchArtists() ([]Artist, error) {
 	resp, err := http.Get("https://groupietrackers.herokuapp.com/api/artists")
@@ -101,6 +120,25 @@ func fetchArtists() ([]Artist, error) {
 
 	return artists, nil
 }
+
+func filterArtistsAndGroups(query string, artists []Artist) []Artist {
+	var filtered []Artist
+	for _, artist := range artists {
+		if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
+			filtered = append(filtered, artist)
+		} else {
+			for _, member := range artist.Members {
+				if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
+					filtered = append(filtered, artist)
+					break
+				}
+			}
+		}
+	}
+	return filtered
+}
+
+// Card creation functions
 
 func createArtistCards(artists []Artist) []fyne.CanvasObject {
 	var cards []fyne.CanvasObject
