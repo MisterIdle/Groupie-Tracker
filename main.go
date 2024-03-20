@@ -1,10 +1,7 @@
-//Fix git
-
 package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"image/color"
 	"io"
 	"log"
@@ -29,10 +26,6 @@ type Artist struct {
 	Locations    string   `json:"locations"`
 	ConcertDates string   `json:"concertDates"`
 	Relations    string   `json:"relations"`
-}
-
-type TappableCard struct {
-	*fyne.Container
 }
 
 func main() {
@@ -106,8 +99,6 @@ func fetchArtists() ([]Artist, error) {
 		return nil, err
 	}
 
-	fmt.Println(artists)
-
 	return artists, nil
 }
 
@@ -115,44 +106,32 @@ func createArtistCards(artists []Artist) []fyne.CanvasObject {
 	var cards []fyne.CanvasObject
 
 	for _, artist := range artists {
-		card := createCard(artist)
-		if card != nil {
-			cards = append(cards, card)
-		}
+		cards = append(cards, createCard(artist, artist.Image))
 	}
 
 	return cards
 }
 
-func createCard(artist Artist) fyne.CanvasObject {
+func createCard(artist Artist, imgPath string) fyne.CanvasObject {
 	res, err := fyne.LoadResourceFromURLString(artist.Image)
 	if err != nil {
 		log.Printf("Error loading image: %v\n", err)
 		return nil
 	}
 
-	image := canvas.NewImageFromResource(res)
-	image.FillMode = canvas.ImageFillContain
-	image.SetMinSize(fyne.NewSize(200, 200))
+	img := canvas.NewImageFromResource(res)
+	img.FillMode = canvas.ImageFillContain
+	img.SetMinSize(fyne.NewSize(200, 200))
 
-	name := widget.NewLabel(artist.Name)
-	name.Alignment = fyne.TextAlignCenter
-	name.TextStyle = fyne.TextStyle{Bold: true}
+	btn := widget.NewButton("Open", func() {
+		log.Printf("Opening artist: %s\n", artist.Name)
+	})
 
-	border := canvas.NewRectangle(color.Transparent)
-	border.StrokeColor = color.RGBA{R: 0, G: 0, B: 0, A: 255}
-	border.StrokeWidth = 3
-
-	// Conteneur pour la carte avec contour et contenu
-	card := container.NewBorder(nil, nil, nil, nil,
-		container.NewVBox(
-			container.NewCenter(image),
-			container.New(layout.NewVBoxLayout(),
-				container.NewCenter(name),
-			),
-		),
-		border,
+	container := fyne.NewContainerWithLayout(
+		layout.NewMaxLayout(),
+		btn,
+		img,
 	)
 
-	return card
+	return container
 }
