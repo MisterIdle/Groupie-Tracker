@@ -63,7 +63,7 @@ func main() {
 
 	content := container.New(layout.NewBorderLayout(header, nil, nil, nil),
 		header,
-		container.NewVScroll(container.NewGridWithColumns(4,
+		container.NewVScroll(container.NewGridWithColumns(3,
 			createArtistCards(artists)...,
 		)),
 	)
@@ -121,17 +121,30 @@ func createCard(artist Artist, imgPath string) fyne.CanvasObject {
 
 	img := canvas.NewImageFromResource(res)
 	img.FillMode = canvas.ImageFillContain
-	img.SetMinSize(fyne.NewSize(200, 200))
+	img.SetMinSize(fyne.NewSize(230, 230))
 
-	btn := widget.NewButton("Open", func() {
+	group := widget.NewLabelWithStyle(artist.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	btn := widget.NewButton("", func() {
 		log.Printf("Opening artist: %s\n", artist.Name)
 	})
 
-	container := fyne.NewContainerWithLayout(
-		layout.NewMaxLayout(),
+	space := canvas.NewRectangle(color.Transparent)
+	space.SetMinSize(fyne.NewSize(1, 30))
+
+	btn.Importance = widget.LowImportance
+
+	paddedContainer := container.NewPadded(container.New(
+		layout.NewStackLayout(),
 		btn,
 		img,
+	))
+
+	vbox := container.NewVBox(
+		space,
+		group,
+		paddedContainer,
 	)
 
-	return container
+	return vbox
 }
