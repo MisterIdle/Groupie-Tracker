@@ -178,11 +178,11 @@ func createCard(artist Artist, imgPath string) fyne.CanvasObject {
 		img,
 	))
 
-	vbox := container.NewVBox(
+	vBoxContainer := container.NewVBox(
 		space,
 		group,
 		paddedContainer,
 	)
 
-	return vbox
+	return vBoxContainer
 }
