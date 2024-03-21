@@ -18,6 +18,15 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+type GroupieApp struct {
+	window         fyne.Window
+	artists        []Artist
+	search         *widget.Entry
+	suggestionsBox *fyne.Container
+	content        *fyne.Container
+	tabs           *container.AppTabs
+}
+
 type Artist struct {
 	ID           int      `json:"id"`
 	Image        string   `json:"image"`
@@ -31,87 +40,84 @@ type Artist struct {
 }
 
 func main() {
+	groupieApp := &GroupieApp{}
+	groupieApp.Run()
+}
+
+func (ga *GroupieApp) Run() {
 	a := app.New()
-	w := a.NewWindow("Groupie Tracker")
-	w.Resize(fyne.NewSize(1000, 600))
-	w.SetFixedSize(true)
-	w.SetIcon(theme.VolumeUpIcon())
+	ga.window = a.NewWindow("Groupie Tracker")
+	ga.window.Resize(fyne.NewSize(1000, 800))
+	ga.window.SetFixedSize(true)
+	ga.window.SetIcon(theme.VolumeUpIcon())
 
 	label := widget.NewLabelWithStyle("Groupie Tracker", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	search := widget.NewEntry()
-	search.SetPlaceHolder("Search a group or artist")
+	ga.search = widget.NewEntry()
+	ga.search.SetPlaceHolder("Search a group or artist")
 
-	artists, err := fetchArtists()
+	var err error
+	ga.artists, err = fetchArtists()
 	if err != nil {
 		log.Fatal("Error fetching artists:", err)
 	}
 
-	suggestionsBox := container.NewVBox()
+	ga.suggestionsBox = container.NewVBox()
 
 	header := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
 		container.NewVBox(
 			label,
-			search,
-			suggestionsBox,
+			ga.search,
+			ga.suggestionsBox,
 		),
 	)
 
-	tabs := container.NewAppTabs()
+	ga.tabs = container.NewAppTabs()
 
-	content := container.New(layout.NewBorderLayout(header, nil, nil, nil),
+	ga.content = container.New(layout.NewBorderLayout(header, nil, nil, nil),
 		header,
 		container.NewVScroll(container.NewGridWithColumns(3,
-			createArtistCards(artists, tabs)...,
+			ga.createArtistCards()...,
 		)),
 	)
 
-	hometab := container.NewTabItem("Home", content)
+	hometab := container.NewTabItem("Home", ga.content)
 	hometab.Icon = theme.HomeIcon()
-	tabs.Append(hometab)
+	ga.tabs.Append(hometab)
 
-	w.SetContent(tabs)
+	ga.window.SetContent(ga.tabs)
 
-	search.OnChanged = func(query string) {
-		updateSuggestions(query, artists, suggestionsBox, search, content)
-	}
+	ga.search.OnChanged = ga.updateSuggestions
 
-	search.OnSubmitted = func(query string) {
-		searchArtists(query, search, content, cards)
-	}
+	ga.search.OnSubmitted = ga.searchArtists
 
-	w.ShowAndRun()
+	ga.window.ShowAndRun()
 }
 
-// Suggestions box
-
-func searchArtists(query string, search *widget.Entry, content *fyne.Container, cards []fyne.CanvasObject) {
-	filteredCards := filterCards(query, cards)
+func (ga *GroupieApp) searchArtists(query string) {
+	filteredCards := ga.filterCards(query)
 	if len(filteredCards) == 0 {
-		// Créer un message de label pour afficher que rien n'est trouvé
 		noResultsLabel := widget.NewLabel("Aucun résultat trouvé pour la recherche : " + query)
 
 		// Remplacer le contenu par le message de label
-		content.Objects[1] = noResultsLabel
-		content.Refresh()
-		// Effacer le contenu du champ de recherche après la recherche
-		search.SetText("")
+		ga.content.Objects[1] = noResultsLabel
+		ga.content.Refresh()
+		ga.search.SetText("")
 		return
 	}
 	filteredContent := container.NewVScroll(container.NewGridWithColumns(3, filteredCards...))
-	content.Objects[1] = filteredContent
-	content.Refresh()
-	// Effacer le contenu du champ de recherche après la recherche
-	search.SetText("")
+	ga.content.Objects[1] = filteredContent
+	ga.content.Refresh()
+	ga.search.SetText("")
 }
 
-func updateSuggestions(query string, artists []Artist, suggestionBox *fyne.Container, search *widget.Entry, content *fyne.Container) {
-	suggestionBox.Objects = nil
+func (ga *GroupieApp) updateSuggestions(query string) {
+	ga.suggestionsBox.Objects = nil
 
 	if query != "" {
-		filtered := filterArtistsAndGroups(query, artists)
+		filtered := ga.filterArtistsAndGroups(query)
 		for _, item := range filtered {
-			if len(suggestionBox.Objects) >= 6 {
+			if len(ga.suggestionsBox.Objects) >= 6 {
 				break
 			}
 			label := item.Name
@@ -120,18 +126,16 @@ func updateSuggestions(query string, artists []Artist, suggestionBox *fyne.Conta
 			}
 			button := widget.NewButton(label, func(artist Artist) func() {
 				return func() {
-					searchArtists(artist.Name, search, content, cards)
+					ga.searchArtists(artist.Name)
 				}
 			}(item)) // Pass the item (Artist) as an argument to the closure
 			button.Importance = widget.HighImportance
 			button.Alignment = widget.ButtonAlignLeading
 
-			suggestionBox.Add(button)
+			ga.suggestionsBox.Add(button)
 		}
 	}
 }
-
-// API functions
 
 func fetchArtists() ([]Artist, error) {
 	resp, err := http.Get("https://groupietrackers.herokuapp.com/api/artists")
@@ -154,9 +158,9 @@ func fetchArtists() ([]Artist, error) {
 	return artists, nil
 }
 
-func filterArtistsAndGroups(query string, artists []Artist) []Artist {
+func (ga *GroupieApp) filterArtistsAndGroups(query string) []Artist {
 	var filtered []Artist
-	for _, artist := range artists {
+	for _, artist := range ga.artists {
 		if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
 			filtered = append(filtered, artist)
 		} else {
@@ -171,18 +175,16 @@ func filterArtistsAndGroups(query string, artists []Artist) []Artist {
 	return filtered
 }
 
-// Card creation functions
-var cards []fyne.CanvasObject
-
-func createArtistCards(artists []Artist, tabs *container.AppTabs) []fyne.CanvasObject {
-	for _, artist := range artists {
-		cards = append(cards, createCard(artist, artist.Image, tabs))
+func (ga *GroupieApp) createArtistCards() []fyne.CanvasObject {
+	var cards []fyne.CanvasObject
+	for _, artist := range ga.artists {
+		cards = append(cards, ga.createCard(artist, artist.Image))
 	}
 
 	return cards
 }
 
-func createCard(artist Artist, imgPath string, tabs *container.AppTabs) fyne.CanvasObject {
+func (ga *GroupieApp) createCard(artist Artist, imgPath string) fyne.CanvasObject {
 	res, err := fyne.LoadResourceFromURLString(artist.Image)
 	if err != nil {
 		log.Printf("Error loading image: %v\n", err)
@@ -196,18 +198,18 @@ func createCard(artist Artist, imgPath string, tabs *container.AppTabs) fyne.Can
 	group := widget.NewLabelWithStyle(artist.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	btn := widget.NewButton("", func() {
-		for _, tab := range tabs.Items {
+		for _, tab := range ga.tabs.Items {
 			if tab.Text == artist.Name {
-				tabs.Select(tab)
+				ga.tabs.Select(tab)
 				return
 			}
 		}
 
-		artistDetailsTab := createArtistDetailsTab(artist, tabs)
-		tabs.Append(container.NewTabItem(artist.Name, artistDetailsTab))
-		tabs.Select(tabs.Items[len(tabs.Items)-1])
+		artistDetailsTab := ga.createArtistDetailsTab(artist)
+		ga.tabs.Append(container.NewTabItem(artist.Name, artistDetailsTab))
+		ga.tabs.Select(ga.tabs.Items[len(ga.tabs.Items)-1])
 
-		tabs.Items[len(tabs.Items)-1].Icon = res
+		ga.tabs.Items[len(ga.tabs.Items)-1].Icon = res
 
 	})
 
@@ -231,24 +233,33 @@ func createCard(artist Artist, imgPath string, tabs *container.AppTabs) fyne.Can
 	return vBoxContainer
 }
 
-// Créer une function qui prend les cards créées et les filtre en fonction de la recherche
-func filterCards(query string, cards []fyne.CanvasObject) []fyne.CanvasObject {
+func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 	var filtered []fyne.CanvasObject
-	for _, card := range cards {
-		if strings.Contains(strings.ToLower(card.(*fyne.Container).Objects[1].(*widget.Label).Text), strings.ToLower(query)) {
-			filtered = append(filtered, card)
+	for _, artist := range ga.artists {
+		// Vérifier si le nom de l'artiste correspond à la recherche
+		if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
+			filtered = append(filtered, ga.createCard(artist, artist.Image))
+		} else {
+			// Vérifier si l'un des membres de l'artiste correspond à la recherche
+			for _, member := range artist.Members {
+				if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
+					filtered = append(filtered, ga.createCard(artist, artist.Image))
+					break
+				}
+			}
 		}
 	}
+
 	return filtered
 }
 
-func createArtistDetailsTab(artist Artist, tabs *container.AppTabs) fyne.CanvasObject {
+func (ga *GroupieApp) createArtistDetailsTab(artist Artist) fyne.CanvasObject {
 	nameLabel := widget.NewLabel(artist.Name)
 
 	closeButton := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
-		for i, tab := range tabs.Items {
+		for i, tab := range ga.tabs.Items {
 			if tab.Text == artist.Name {
-				tabs.RemoveIndex(i)
+				ga.tabs.RemoveIndex(i)
 				return
 			}
 		}
