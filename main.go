@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -51,21 +52,25 @@ func main() {
 	header := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
 		container.NewVBox(
 			label,
-			container.NewVBox(
-				search,
-			),
+			search,
 			suggestionsBox,
 		),
 	)
 
+	tabs := container.NewAppTabs()
+
 	content := container.New(layout.NewBorderLayout(header, nil, nil, nil),
 		header,
 		container.NewVScroll(container.NewGridWithColumns(3,
-			createArtistCards(artists)...,
+			createArtistCards(artists, tabs)...,
 		)),
 	)
 
-	w.SetContent(content)
+	hometab := container.NewTabItem("Home", content)
+	hometab.Icon = theme.HomeIcon()
+	tabs.Append(hometab)
+
+	w.SetContent(tabs)
 
 	search.OnChanged = func(query string) {
 		updateSuggestions(query, artists, suggestionsBox)
@@ -140,17 +145,17 @@ func filterArtistsAndGroups(query string, artists []Artist) []Artist {
 
 // Card creation functions
 
-func createArtistCards(artists []Artist) []fyne.CanvasObject {
+func createArtistCards(artists []Artist, tabs *container.AppTabs) []fyne.CanvasObject {
 	var cards []fyne.CanvasObject
 
 	for _, artist := range artists {
-		cards = append(cards, createCard(artist, artist.Image))
+		cards = append(cards, createCard(artist, artist.Image, tabs))
 	}
 
 	return cards
 }
 
-func createCard(artist Artist, imgPath string) fyne.CanvasObject {
+func createCard(artist Artist, imgPath string, tabs *container.AppTabs) fyne.CanvasObject {
 	res, err := fyne.LoadResourceFromURLString(artist.Image)
 	if err != nil {
 		log.Printf("Error loading image: %v\n", err)
@@ -164,13 +169,27 @@ func createCard(artist Artist, imgPath string) fyne.CanvasObject {
 	group := widget.NewLabelWithStyle(artist.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	btn := widget.NewButton("", func() {
-		log.Printf("Opening artist: %s\n", artist.Name)
+		for _, tab := range tabs.Items {
+			if tab.Text == artist.Name {
+				tabs.Select(tab)
+				return
+			}
+		}
+
+		// If not open, create a new tab for the artist
+		artistDetailsTab := createArtistDetailsTab(artist, tabs)
+		tabs.Append(container.NewTabItem(artist.Name, artistDetailsTab))
+		tabs.Select(tabs.Items[len(tabs.Items)-1])
+
+		// Add a icon to the tab
+		tabs.Items[len(tabs.Items)-1].Icon = res
+
 	})
+
+	btn.Importance = widget.LowImportance
 
 	space := canvas.NewRectangle(color.Transparent)
 	space.SetMinSize(fyne.NewSize(1, 30))
-
-	btn.Importance = widget.LowImportance
 
 	paddedContainer := container.NewPadded(container.New(
 		layout.NewStackLayout(),
@@ -185,4 +204,36 @@ func createCard(artist Artist, imgPath string) fyne.CanvasObject {
 	)
 
 	return vBoxContainer
+}
+
+func createArtistDetailsTab(artist Artist, tabs *container.AppTabs) fyne.CanvasObject {
+	nameLabel := widget.NewLabel(artist.Name)
+
+	closeButton := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
+		// Find the index of the tab to close
+		for i, tab := range tabs.Items {
+			if tab.Text == artist.Name {
+				tabs.RemoveIndex(i)
+				return
+			}
+		}
+	})
+
+	nameWithClose := container.NewHBox(
+		nameLabel,
+		closeButton,
+	)
+
+	firstAlbumLabel := widget.NewLabel("First Album: " + artist.FirstAlbum)
+	creationDateLabel := widget.NewLabel("Creation Date: " + strconv.Itoa(artist.CreationDate))
+
+	detailsContent := container.NewVBox(
+		nameWithClose,
+		firstAlbumLabel,
+		creationDateLabel,
+	)
+
+	detailsScroll := container.NewScroll(detailsContent)
+
+	return detailsScroll
 }
