@@ -73,7 +73,11 @@ func main() {
 	w.SetContent(tabs)
 
 	search.OnChanged = func(query string) {
-		updateSuggestions(query, artists, suggestionsBox)
+		updateSuggestions(query, artists, suggestionsBox, search, content)
+	}
+
+	search.OnSubmitted = func(query string) {
+		searchArtists(query, search, content, cards)
 	}
 
 	w.ShowAndRun()
@@ -81,7 +85,27 @@ func main() {
 
 // Suggestions box
 
-func updateSuggestions(query string, artists []Artist, suggestionBox *fyne.Container) {
+func searchArtists(query string, search *widget.Entry, content *fyne.Container, cards []fyne.CanvasObject) {
+	filteredCards := filterCards(query, cards)
+	if len(filteredCards) == 0 {
+		// Créer un message de label pour afficher que rien n'est trouvé
+		noResultsLabel := widget.NewLabel("Aucun résultat trouvé pour la recherche : " + query)
+
+		// Remplacer le contenu par le message de label
+		content.Objects[1] = noResultsLabel
+		content.Refresh()
+		// Effacer le contenu du champ de recherche après la recherche
+		search.SetText("")
+		return
+	}
+	filteredContent := container.NewVScroll(container.NewGridWithColumns(3, filteredCards...))
+	content.Objects[1] = filteredContent
+	content.Refresh()
+	// Effacer le contenu du champ de recherche après la recherche
+	search.SetText("")
+}
+
+func updateSuggestions(query string, artists []Artist, suggestionBox *fyne.Container, search *widget.Entry, content *fyne.Container) {
 	suggestionBox.Objects = nil
 
 	if query != "" {
@@ -90,11 +114,15 @@ func updateSuggestions(query string, artists []Artist, suggestionBox *fyne.Conta
 			if len(suggestionBox.Objects) >= 6 {
 				break
 			}
-			labelText := item.Name
+			label := item.Name
 			if len(item.Members) > 0 {
-				labelText += " (" + strings.Join(item.Members, ", ") + ")"
+				label += " (" + strings.Join(item.Members, ", ") + ")"
 			}
-			button := widget.NewButton(labelText, func() {})
+			button := widget.NewButton(label, func(artist Artist) func() {
+				return func() {
+					searchArtists(artist.Name, search, content, cards)
+				}
+			}(item)) // Pass the item (Artist) as an argument to the closure
 			button.Importance = widget.HighImportance
 			button.Alignment = widget.ButtonAlignLeading
 
@@ -144,10 +172,9 @@ func filterArtistsAndGroups(query string, artists []Artist) []Artist {
 }
 
 // Card creation functions
+var cards []fyne.CanvasObject
 
 func createArtistCards(artists []Artist, tabs *container.AppTabs) []fyne.CanvasObject {
-	var cards []fyne.CanvasObject
-
 	for _, artist := range artists {
 		cards = append(cards, createCard(artist, artist.Image, tabs))
 	}
@@ -176,12 +203,10 @@ func createCard(artist Artist, imgPath string, tabs *container.AppTabs) fyne.Can
 			}
 		}
 
-		// If not open, create a new tab for the artist
 		artistDetailsTab := createArtistDetailsTab(artist, tabs)
 		tabs.Append(container.NewTabItem(artist.Name, artistDetailsTab))
 		tabs.Select(tabs.Items[len(tabs.Items)-1])
 
-		// Add a icon to the tab
 		tabs.Items[len(tabs.Items)-1].Icon = res
 
 	})
@@ -206,11 +231,21 @@ func createCard(artist Artist, imgPath string, tabs *container.AppTabs) fyne.Can
 	return vBoxContainer
 }
 
+// Créer une function qui prend les cards créées et les filtre en fonction de la recherche
+func filterCards(query string, cards []fyne.CanvasObject) []fyne.CanvasObject {
+	var filtered []fyne.CanvasObject
+	for _, card := range cards {
+		if strings.Contains(strings.ToLower(card.(*fyne.Container).Objects[1].(*widget.Label).Text), strings.ToLower(query)) {
+			filtered = append(filtered, card)
+		}
+	}
+	return filtered
+}
+
 func createArtistDetailsTab(artist Artist, tabs *container.AppTabs) fyne.CanvasObject {
 	nameLabel := widget.NewLabel(artist.Name)
 
 	closeButton := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
-		// Find the index of the tab to close
 		for i, tab := range tabs.Items {
 			if tab.Text == artist.Name {
 				tabs.RemoveIndex(i)
@@ -234,6 +269,5 @@ func createArtistDetailsTab(artist Artist, tabs *container.AppTabs) fyne.CanvasO
 	)
 
 	detailsScroll := container.NewScroll(detailsContent)
-
 	return detailsScroll
 }
