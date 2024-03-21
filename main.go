@@ -25,6 +25,7 @@ type GroupieApp struct {
 	suggestionsBox *fyne.Container
 	content        *fyne.Container
 	tabs           *container.AppTabs
+	searchType     string
 }
 
 type Artist struct {
@@ -56,6 +57,17 @@ func (ga *GroupieApp) Run() {
 	ga.search = widget.NewEntry()
 	ga.search.SetPlaceHolder("Search a group or artist")
 
+	allRadio := widget.NewRadioGroup([]string{"All", "Groups", "Artists"}, func(s string) {
+		ga.searchType = s
+	})
+
+	allRadio.SetSelected("All")
+
+	radioContainer := container.NewHBox(
+		widget.NewLabel("Type de recherche:"),
+		allRadio,
+	)
+
 	var err error
 	ga.artists, err = fetchArtists()
 	if err != nil {
@@ -68,6 +80,7 @@ func (ga *GroupieApp) Run() {
 		container.NewVBox(
 			label,
 			ga.search,
+			radioContainer,
 			ga.suggestionsBox,
 		),
 	)
@@ -98,8 +111,6 @@ func (ga *GroupieApp) searchArtists(query string) {
 	filteredCards := ga.filterCards(query)
 	if len(filteredCards) == 0 {
 		noResultsLabel := widget.NewLabel("Aucun résultat trouvé pour la recherche : " + query)
-
-		// Remplacer le contenu par le message de label
 		ga.content.Objects[1] = noResultsLabel
 		ga.content.Refresh()
 		ga.search.SetText("")
@@ -160,10 +171,29 @@ func fetchArtists() ([]Artist, error) {
 
 func (ga *GroupieApp) filterArtistsAndGroups(query string) []Artist {
 	var filtered []Artist
-	for _, artist := range ga.artists {
-		if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
-			filtered = append(filtered, artist)
-		} else {
+
+	switch ga.searchType {
+	case "All":
+		for _, artist := range ga.artists {
+			if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
+				filtered = append(filtered, artist)
+			} else {
+				for _, member := range artist.Members {
+					if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
+						filtered = append(filtered, artist)
+						break
+					}
+				}
+			}
+		}
+	case "Groups":
+		for _, artist := range ga.artists {
+			if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
+				filtered = append(filtered, artist)
+			}
+		}
+	case "Artists":
+		for _, artist := range ga.artists {
 			for _, member := range artist.Members {
 				if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
 					filtered = append(filtered, artist)
@@ -172,19 +202,20 @@ func (ga *GroupieApp) filterArtistsAndGroups(query string) []Artist {
 			}
 		}
 	}
+
 	return filtered
 }
 
 func (ga *GroupieApp) createArtistCards() []fyne.CanvasObject {
 	var cards []fyne.CanvasObject
 	for _, artist := range ga.artists {
-		cards = append(cards, ga.createCard(artist, artist.Image))
+		cards = append(cards, ga.createCard(artist))
 	}
 
 	return cards
 }
 
-func (ga *GroupieApp) createCard(artist Artist, imgPath string) fyne.CanvasObject {
+func (ga *GroupieApp) createCard(artist Artist) fyne.CanvasObject {
 	res, err := fyne.LoadResourceFromURLString(artist.Image)
 	if err != nil {
 		log.Printf("Error loading image: %v\n", err)
@@ -226,24 +257,43 @@ func (ga *GroupieApp) createCard(artist Artist, imgPath string) fyne.CanvasObjec
 
 	vBoxContainer := container.NewVBox(
 		space,
-		group,
-		paddedContainer,
+		paddedContainer, group,
 	)
 
 	return vBoxContainer
 }
 
 func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
+
+	queryLower := strings.ToLower(query)
 	var filtered []fyne.CanvasObject
-	for _, artist := range ga.artists {
-		// Vérifier si le nom de l'artiste correspond à la recherche
-		if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
-			filtered = append(filtered, ga.createCard(artist, artist.Image))
-		} else {
-			// Vérifier si l'un des membres de l'artiste correspond à la recherche
+
+	switch ga.searchType {
+	case "All":
+		for _, artist := range ga.artists {
+			if strings.Contains(strings.ToLower(artist.Name), queryLower) {
+				filtered = append(filtered, ga.createCard(artist))
+			} else {
+				for _, member := range artist.Members {
+					if strings.Contains(strings.ToLower(member), queryLower) {
+						filtered = append(filtered, ga.createCard(artist))
+						break
+					}
+				}
+			}
+		}
+	case "Groups":
+		for _, artist := range ga.artists {
+			if strings.Contains(strings.ToLower(artist.Name), queryLower) {
+				filtered = append(filtered, ga.createCard(artist))
+			}
+		}
+
+	case "Artists":
+		for _, artist := range ga.artists {
 			for _, member := range artist.Members {
-				if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
-					filtered = append(filtered, ga.createCard(artist, artist.Image))
+				if strings.Contains(strings.ToLower(member), queryLower) {
+					filtered = append(filtered, ga.createCard(artist))
 					break
 				}
 			}
