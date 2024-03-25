@@ -1,6 +1,7 @@
 package app
 
 import (
+	"strconv"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -27,7 +28,16 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 	ga.suggestionsBox.Objects = nil
 
 	if query != "" {
-		filtered := ga.filterArtistsAndGroups(query)
+		var filtered []Artist
+
+		// Check if the query is a valid date
+		queryInt, err := strconv.Atoi(query)
+		if err == nil {
+			filtered = ga.filterArtistsByCreationDate(queryInt)
+		} else {
+			filtered = ga.filterArtistsAndGroups(query)
+		}
+
 		for _, item := range filtered {
 			if len(ga.suggestionsBox.Objects) >= 6 {
 				break
@@ -40,7 +50,7 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 				return func() {
 					ga.searchArtists(artist.Name)
 				}
-			}(item)) // Pass the item (Artist) as an argument to the closure
+			}(item))
 			button.Importance = widget.HighImportance
 			button.Alignment = widget.ButtonAlignLeading
 
@@ -52,28 +62,10 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 func (ga *GroupieApp) filterArtistsAndGroups(query string) []Artist {
 	var filtered []Artist
 
-	switch ga.searchType {
-	case "All":
-		for _, artist := range ga.artists {
-			if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
-				filtered = append(filtered, artist)
-			} else {
-				for _, member := range artist.Members {
-					if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
-						filtered = append(filtered, artist)
-						break
-					}
-				}
-			}
-		}
-	case "Groups":
-		for _, artist := range ga.artists {
-			if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
-				filtered = append(filtered, artist)
-			}
-		}
-	case "Artists":
-		for _, artist := range ga.artists {
+	for _, artist := range ga.artists {
+		if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
+			filtered = append(filtered, artist)
+		} else {
 			for _, member := range artist.Members {
 				if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
 					filtered = append(filtered, artist)
@@ -86,40 +78,44 @@ func (ga *GroupieApp) filterArtistsAndGroups(query string) []Artist {
 	return filtered
 }
 
-func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
+func (ga *GroupieApp) filterArtistsByCreationDate(date int) []Artist {
+	var filtered []Artist
 
+	for _, artist := range ga.artists {
+		yearStr := strconv.Itoa(artist.CreationDate)
+
+		if strings.Contains(yearStr, strconv.Itoa(date)) {
+			filtered = append(filtered, artist)
+		}
+	}
+
+	return filtered
+}
+
+func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 	queryLower := strings.ToLower(query)
 	var filtered []fyne.CanvasObject
 
-	switch ga.searchType {
-	case "All":
-		for _, artist := range ga.artists {
-			if strings.Contains(strings.ToLower(artist.Name), queryLower) {
-				filtered = append(filtered, ga.createCard(artist))
-			} else {
-				for _, member := range artist.Members {
-					if strings.Contains(strings.ToLower(member), queryLower) {
-						filtered = append(filtered, ga.createCard(artist))
-						break
-					}
-				}
-			}
-		}
-	case "Groups":
-		for _, artist := range ga.artists {
-			if strings.Contains(strings.ToLower(artist.Name), queryLower) {
-				filtered = append(filtered, ga.createCard(artist))
-			}
-		}
+	queryInt, err := strconv.Atoi(query)
+	var dateSearch bool
 
-	case "Artists":
-		for _, artist := range ga.artists {
+	if err == nil {
+		dateSearch = true
+	}
+
+	for _, artist := range ga.artists {
+		if strings.Contains(strings.ToLower(artist.Name), queryLower) {
+			filtered = append(filtered, ga.createCard(artist))
+		} else {
 			for _, member := range artist.Members {
 				if strings.Contains(strings.ToLower(member), queryLower) {
 					filtered = append(filtered, ga.createCard(artist))
 					break
 				}
 			}
+		}
+		if dateSearch && artist.CreationDate == queryInt {
+			filtered = append(filtered, ga.createCard(artist))
 		}
 	}
 

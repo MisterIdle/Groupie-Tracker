@@ -18,7 +18,6 @@ type GroupieApp struct {
 	suggestionsBox *fyne.Container
 	content        *fyne.Container
 	tabs           *container.AppTabs
-	searchType     string
 }
 
 func (ga *GroupieApp) Run() {
@@ -33,17 +32,6 @@ func (ga *GroupieApp) Run() {
 	ga.search = widget.NewEntry()
 	ga.search.SetPlaceHolder("Search a group or artist")
 
-	allRadio := widget.NewRadioGroup([]string{"All", "Groups", "Artists"}, func(s string) {
-		ga.searchType = s
-	})
-
-	allRadio.SetSelected("All")
-
-	radioContainer := container.NewHBox(
-		widget.NewLabel("Type de recherche:"),
-		allRadio,
-	)
-
 	var err error
 	ga.artists, err = fetchArtists()
 	if err != nil {
@@ -56,7 +44,6 @@ func (ga *GroupieApp) Run() {
 		container.NewVBox(
 			label,
 			ga.search,
-			radioContainer,
 			ga.suggestionsBox,
 		),
 	)

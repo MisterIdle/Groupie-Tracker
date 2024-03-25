@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -37,4 +38,22 @@ func fetchArtists() ([]Artist, error) {
 	}
 
 	return artists, nil
+}
+
+func fetchLocations(artistID int) ([]string, error) {
+	url := fmt.Sprintf("https://groupietrackers.herokuapp.com/api/locations/%d", artistID)
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var locationData struct {
+		Locations []string `json:"locations"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&locationData); err != nil {
+		return nil, err
+	}
+
+	return locationData.Locations, nil
 }
