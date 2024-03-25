@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -50,8 +51,8 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 			filtered = ga.filterArtistsAndGroups(query)
 		}
 
-		//filteredByLocation := ga.filterArtistByLocation(query)
-		//filtered = mergeArtists(filtered, filteredByLocation)
+		filteredByLocation := ga.filterArtistByLocationConcurrent(query)
+		filtered = mergeArtists(filtered, filteredByLocation)
 
 		filteredByAlbum := ga.filterArtistByFirstAlbum(query)
 		filtered = mergeArtists(filtered, filteredByAlbum)
@@ -140,23 +141,31 @@ func (ga *GroupieApp) filterArtistByFirstAlbum(album string) []Artist {
 	return filtered
 }
 
-func (ga *GroupieApp) filterArtistByLocation(location string) []Artist {
+func (ga *GroupieApp) filterArtistByLocationConcurrent(location string) []Artist {
 	var filtered []Artist
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 
 	for _, artist := range ga.artists {
-		locations, err := fetchLocations(artist.ID)
-		if err != nil {
-			fmt.Println("Erreur lors de la récupération des emplacements pour l'artiste", artist.Name, ":", err)
-			continue
-		}
-
-		for _, loc := range locations {
-			if strings.Contains(strings.ToLower(loc), strings.ToLower(location)) {
-				filtered = append(filtered, artist)
-				break
+		wg.Add(1)
+		go func(artist Artist) {
+			defer wg.Done()
+			locations, err := fetchLocations(artist.ID)
+			if err != nil {
+				fmt.Println("Erreur lors de la récupération des emplacements pour l'artiste", artist.Name, ":", err)
+				return
 			}
-		}
+			for _, loc := range locations {
+				if strings.Contains(strings.ToLower(loc), strings.ToLower(location)) {
+					mu.Lock()
+					filtered = append(filtered, artist)
+					mu.Unlock()
+					break
+				}
+			}
+		}(artist)
 	}
+	wg.Wait()
 
 	return filtered
 }
@@ -198,7 +207,7 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 	}
 
 	// Filtrer par emplacement
-	filteredByLocation := ga.filterArtistByLocation(query)
+	filteredByLocation := ga.filterArtistByLocationConcurrent(query)
 	for _, artist := range filteredByLocation {
 		filtered = append(filtered, ga.createCard(artist))
 	}
