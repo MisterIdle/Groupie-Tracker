@@ -50,8 +50,8 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 			filtered = ga.filterArtistsAndGroups(query)
 		}
 
-		filteredByLocation := ga.filterArtistByLocation(query)
-		filtered = mergeArtists(filtered, filteredByLocation)
+		//filteredByLocation := ga.filterArtistByLocation(query)
+		//filtered = mergeArtists(filtered, filteredByLocation)
 
 		filteredByAlbum := ga.filterArtistByFirstAlbum(query)
 		filtered = mergeArtists(filtered, filteredByAlbum)
