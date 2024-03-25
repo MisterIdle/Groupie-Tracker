@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -36,21 +37,24 @@ func (ga *GroupieApp) showLoadingText(show bool) {
 		ga.content.Objects[1] = container.NewVScroll(container.NewGridWithColumns(3, ga.createArtistCards()...))
 	}
 }
-
 func (ga *GroupieApp) updateSuggestions(query string) {
 	ga.suggestionsBox.Objects = nil
+	var filtered []Artist
 
 	if query != "" {
-		var filtered []Artist
-
 		queryInt, err := strconv.Atoi(query)
+
 		if err == nil {
 			filtered = ga.filterArtistsByCreationDate(queryInt)
-		} else if strings.Contains(query, "") {
-			filtered = ga.filterArtistByFirstAlbum(query)
 		} else {
 			filtered = ga.filterArtistsAndGroups(query)
 		}
+
+		filteredByLocation := ga.filterArtistByLocation(query)
+		filtered = mergeArtists(filtered, filteredByLocation)
+
+		filteredByAlbum := ga.filterArtistByFirstAlbum(query)
+		filtered = mergeArtists(filtered, filteredByAlbum)
 
 		for _, item := range filtered {
 			if len(ga.suggestionsBox.Objects) >= 6 {
@@ -64,13 +68,29 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 				return func() {
 					ga.searchArtists(artist.Name)
 				}
-			}(item))
+			}(item)) // Passer l'élément (Artist) en tant qu'argument à la closure
 			button.Importance = widget.HighImportance
 			button.Alignment = widget.ButtonAlignLeading
 
 			ga.suggestionsBox.Add(button)
 		}
 	}
+}
+
+// Fusionne deux tableaux d'Artistes en évitant les doublons
+func mergeArtists(a, b []Artist) []Artist {
+	merged := make(map[int]Artist)
+	for _, artist := range a {
+		merged[artist.ID] = artist
+	}
+	for _, artist := range b {
+		merged[artist.ID] = artist
+	}
+	result := make([]Artist, 0, len(merged))
+	for _, artist := range merged {
+		result = append(result, artist)
+	}
+	return result
 }
 
 func (ga *GroupieApp) filterArtistsAndGroups(query string) []Artist {
@@ -120,6 +140,27 @@ func (ga *GroupieApp) filterArtistByFirstAlbum(album string) []Artist {
 	return filtered
 }
 
+func (ga *GroupieApp) filterArtistByLocation(location string) []Artist {
+	var filtered []Artist
+
+	for _, artist := range ga.artists {
+		locations, err := fetchLocations(artist.ID)
+		if err != nil {
+			fmt.Println("Erreur lors de la récupération des emplacements pour l'artiste", artist.Name, ":", err)
+			continue
+		}
+
+		for _, loc := range locations {
+			if strings.Contains(strings.ToLower(loc), strings.ToLower(location)) {
+				filtered = append(filtered, artist)
+				break
+			}
+		}
+	}
+
+	return filtered
+}
+
 func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 	queryLower := strings.ToLower(query)
 	var filtered []fyne.CanvasObject
@@ -154,6 +195,12 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 		if strings.Contains(artist.FirstAlbum, query) {
 			filtered = append(filtered, ga.createCard(artist))
 		}
+	}
+
+	// Filtrer par emplacement
+	filteredByLocation := ga.filterArtistByLocation(query)
+	for _, artist := range filteredByLocation {
+		filtered = append(filtered, ga.createCard(artist))
 	}
 
 	return filtered
