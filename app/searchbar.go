@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -12,11 +11,7 @@ import (
 )
 
 func (ga *GroupieApp) searchArtists(query string) {
-	ga.showLoadingText(true)
-
 	filteredCards := ga.filterCards(query)
-
-	ga.showLoadingText(false)
 
 	if len(filteredCards) == 0 {
 		noResultsLabel := widget.NewLabel("Aucun résultat trouvé pour la recherche : " + query)
@@ -31,13 +26,6 @@ func (ga *GroupieApp) searchArtists(query string) {
 	ga.search.SetText("")
 }
 
-func (ga *GroupieApp) showLoadingText(show bool) {
-	if show {
-		ga.content.Objects[1] = widget.NewLabel("Chargement...")
-	} else {
-		ga.content.Objects[1] = container.NewVScroll(container.NewGridWithColumns(3, ga.createArtistCards()...))
-	}
-}
 func (ga *GroupieApp) updateSuggestions(query string) {
 	ga.suggestionsBox.Objects = nil
 	var filtered []Artist
@@ -51,7 +39,7 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 			filtered = ga.filterArtistsAndGroups(query)
 		}
 
-		filteredByLocation := ga.filterArtistByLocationConcurrent(query)
+		filteredByLocation := ga.filterArtistByLocation(query)
 		filtered = mergeArtists(filtered, filteredByLocation)
 
 		filteredByAlbum := ga.filterArtistByFirstAlbum(query)
@@ -128,7 +116,6 @@ func (ga *GroupieApp) filterArtistsByCreationDate(date int) []Artist {
 	return filtered
 }
 
-// "firstAlbum":"14-12-1973"
 func (ga *GroupieApp) filterArtistByFirstAlbum(album string) []Artist {
 	var filtered []Artist
 
@@ -141,31 +128,22 @@ func (ga *GroupieApp) filterArtistByFirstAlbum(album string) []Artist {
 	return filtered
 }
 
-func (ga *GroupieApp) filterArtistByLocationConcurrent(location string) []Artist {
+func (ga *GroupieApp) filterArtistByLocation(location string) []Artist {
 	var filtered []Artist
-	var wg sync.WaitGroup
-	var mu sync.Mutex
 
 	for _, artist := range ga.artists {
-		wg.Add(1)
-		go func(artist Artist) {
-			defer wg.Done()
-			locations, err := fetchLocations(artist.ID)
-			if err != nil {
-				fmt.Println("Erreur lors de la récupération des emplacements pour l'artiste", artist.Name, ":", err)
-				return
+		locations, err := fetchLocations(artist.ID)
+		if err != nil {
+			fmt.Println("Erreur lors de la récupération des emplacements pour l'artiste", artist.Name, ":", err)
+			continue
+		}
+		for _, loc := range locations {
+			if strings.Contains(strings.ToLower(loc), strings.ToLower(location)) {
+				filtered = append(filtered, artist)
+				break
 			}
-			for _, loc := range locations {
-				if strings.Contains(strings.ToLower(loc), strings.ToLower(location)) {
-					mu.Lock()
-					filtered = append(filtered, artist)
-					mu.Unlock()
-					break
-				}
-			}
-		}(artist)
+		}
 	}
-	wg.Wait()
 
 	return filtered
 }
@@ -207,7 +185,7 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 	}
 
 	// Filtrer par emplacement
-	filteredByLocation := ga.filterArtistByLocationConcurrent(query)
+	filteredByLocation := ga.filterArtistByLocation(query)
 	for _, artist := range filteredByLocation {
 		filtered = append(filtered, ga.createCard(artist))
 	}
