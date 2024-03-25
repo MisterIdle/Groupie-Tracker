@@ -1,4 +1,4 @@
-module myapp
+module gp
 
 go 1.21.6
 
