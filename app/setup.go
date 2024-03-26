@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"log"
 
 	"fyne.io/fyne/v2"
@@ -29,20 +30,49 @@ func (ga *GroupieApp) Run() {
 
 	label := widget.NewLabelWithStyle("Groupie Tracker", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	ga.search = widget.NewEntry()
-	ga.search.SetPlaceHolder("Search a group or artist")
-
 	var err error
 	ga.artists, err = fetchArtists()
 	if err != nil {
 		log.Fatal("Error fetching artists:", err)
 	}
 
-	ga.suggestionsBox = container.NewVBox()
+	// Déterminer le nombre maximum de membres dans un groupe
+	maxMembers := 0
+	for _, artist := range ga.artists {
+		if len(artist.Members) > maxMembers {
+			maxMembers = len(artist.Members)
+		}
+	}
+
+	memberText := widget.NewLabel("Members:")
+
+	// Créer automatiquement les cases à cocher pour le nombre de membres
+	memberCheckboxes := make([]fyne.CanvasObject, maxMembers)
+	for i := 0; i < maxMembers; i++ {
+		num := i + 1
+		memberCheckboxes[i] = widget.NewCheck(fmt.Sprintf("%d", num), func(checked bool) {
+			// Insérez ici la logique pour gérer le cas où 'num' membres sont sélectionnés
+		})
+	}
+
+	ga.search = widget.NewEntry()
+	ga.search.SetPlaceHolder("Search a group or artist")
+
+	ga.suggestionsBox = container.NewHBox()
+
+	membersGroup := container.NewHBox(memberCheckboxes...)
+
+	filterMember := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
+		container.NewHBox(
+			memberText,
+			membersGroup,
+		),
+	)
 
 	header := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
 		container.NewVBox(
 			label,
+			filterMember,
 			ga.search,
 			ga.suggestionsBox,
 		),

@@ -30,7 +30,6 @@ var cache = &apiCache{
 }
 
 func fetchArtists() ([]Artist, error) {
-	// Vérifier si les données des artistes sont déjà mises en cache
 	if artists, ok := cache.artistsCache["artists"]; ok {
 		return artists, nil
 	}
@@ -52,14 +51,12 @@ func fetchArtists() ([]Artist, error) {
 		return nil, err
 	}
 
-	// Mettre en cache les données des artistes
 	cache.artistsCache["artists"] = artists
 
 	return artists, nil
 }
 
 func fetchLocations(artistID int) ([]string, error) {
-	// Vérifier si les données des emplacements sont déjà mises en cache
 	if locations, ok := cache.locationsCache[artistID]; ok {
 		return locations, nil
 	}
@@ -78,21 +75,17 @@ func fetchLocations(artistID int) ([]string, error) {
 		return nil, err
 	}
 
-	// Mettre en cache les données des emplacements
 	cache.locationsCache[artistID] = locationData.Locations
 
 	return locationData.Locations, nil
 }
 
-// Précharger les données des artistes et des emplacements
 func preloadData() {
-	// Précharger les artistes
 	_, err := fetchArtists()
 	if err != nil {
 		fmt.Println("Erreur lors du préchargement des artistes:", err)
 	}
 
-	// Précharger les emplacements pour chaque artiste
 	artists, err := fetchArtists()
 	if err != nil {
 		fmt.Println("Erreur lors du préchargement des emplacements:", err)
@@ -106,6 +99,5 @@ func preloadData() {
 }
 
 func init() {
-	// Précharger les données lors du démarrage de l'application
 	preloadData()
 }
