@@ -1,6 +1,6 @@
 package main
 
-import "gp/app"
+import "groupie-tracker/app"
 
 func main() {
 	groupieApp := app.GroupieApp{}

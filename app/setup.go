@@ -59,6 +59,7 @@ func (ga *GroupieApp) Run() {
 
 	hometab := container.NewTabItem("Home", ga.content)
 	hometab.Icon = theme.HomeIcon()
+
 	ga.tabs.Append(hometab)
 
 	ga.window.SetContent(ga.tabs)

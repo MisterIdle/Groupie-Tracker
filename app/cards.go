@@ -90,12 +90,14 @@ func (ga *GroupieApp) createArtistDetailsTab(artist Artist) fyne.CanvasObject {
 	firstAlbumLabel := widget.NewLabel("First Album: " + artist.FirstAlbum)
 	creationDateLabel := widget.NewLabel("Creation Date: " + strconv.Itoa(artist.CreationDate))
 
+	// Créer le contenu détaillé
 	detailsContent := container.NewVBox(
 		nameWithClose,
 		firstAlbumLabel,
 		creationDateLabel,
 	)
 
+	// Créer un conteneur de défilement pour le contenu
 	detailsScroll := container.NewScroll(detailsContent)
 	return detailsScroll
 }
