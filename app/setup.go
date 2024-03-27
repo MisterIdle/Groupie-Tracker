@@ -19,7 +19,7 @@ type GroupieApp struct {
 	suggestionsBox *fyne.Container
 	content        *fyne.Container
 	tabs           *container.AppTabs
-	checkedMembers map[int]bool // Stocke l'état des cases cochées
+	checkedMembers map[int]bool
 }
 
 func (ga *GroupieApp) Run() {
@@ -52,6 +52,8 @@ func (ga *GroupieApp) Run() {
 		memberCheckboxes[i] = widget.NewCheck(fmt.Sprintf("%d", num), func(checked bool) {
 			ga.checkedMembers[num] = checked
 			ga.searchArtists(ga.search.Text)
+
+			fmt.Println(ga.checkedMembers)
 		})
 	}
 

@@ -45,12 +45,24 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 		filteredByAlbum := ga.filterArtistByFirstAlbum(query)
 		filtered = mergeArtists(filtered, filteredByAlbum)
 
+		allUnchecked := true
+		for _, checked := range ga.checkedMembers {
+			if checked {
+				allUnchecked = false
+				break
+			}
+		}
+
+		if allUnchecked {
+			filtered = ga.artists
+		}
+
 		for _, item := range filtered {
 			if len(ga.suggestionsBox.Objects) >= 6 {
 				break
 			}
 
-			if ga.checkedMembers[len(item.Members)] {
+			if ga.checkedMembers[len(item.Members)] || allUnchecked {
 				label := item.Name
 				if len(item.Members) > 0 {
 					label += " (" + strings.Join(item.Members, ", ") + ")"
@@ -161,21 +173,19 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 
 	addedCards := make(map[int]bool)
 
-	// Créer seulement les cartes avec le nombre de membres coché
-	if len(ga.checkedMembers) > 0 {
-		for _, artist := range ga.artists {
-			if ga.checkedMembers[len(artist.Members)] {
-				card := ga.createCard(artist)
-				if !addedCards[artist.ID] {
-					filtered = append(filtered, card)
-					addedCards[artist.ID] = true
-				}
-			}
+	allUnchecked := true
+	for _, checked := range ga.checkedMembers {
+		if checked {
+			allUnchecked = false
+			break
 		}
-		return filtered
 	}
 
 	for _, artist := range ga.artists {
+		if !allUnchecked && !ga.checkedMembers[len(artist.Members)] {
+			continue
+		}
+
 		if strings.Contains(strings.ToLower(artist.Name), queryLower) {
 			card := ga.createCard(artist)
 			if !addedCards[artist.ID] {
