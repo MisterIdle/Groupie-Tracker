@@ -53,16 +53,13 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 			}
 		}
 
-		if allUnchecked {
-			filtered = ga.artists
-		}
-
 		for _, item := range filtered {
 			if len(ga.suggestionsBox.Objects) >= 6 {
 				break
 			}
 
-			if ga.checkedMembers[len(item.Members)] || allUnchecked {
+			// Vérifie si toutes les cases sont décochées ou si l'artiste a le bon nombre de membres
+			if allUnchecked || ga.checkedMembers[len(item.Members)] {
 				label := item.Name
 				if len(item.Members) > 0 {
 					label += " (" + strings.Join(item.Members, ", ") + ")"
