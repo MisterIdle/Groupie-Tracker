@@ -58,7 +58,6 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 				break
 			}
 
-			// Vérifie si toutes les cases sont décochées ou si l'artiste a le bon nombre de membres
 			if allUnchecked || ga.checkedMembers[len(item.Members)] {
 				label := item.Name
 				if len(item.Members) > 0 {
@@ -171,7 +170,6 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 	addedCards := make(map[int]bool)
 
 	for _, artist := range ga.artists {
-		// Vérifie si toutes les cases sont décochées
 		allUnchecked := true
 		for _, checked := range ga.checkedMembers {
 			if checked {
@@ -180,7 +178,6 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 			}
 		}
 
-		// Vérifie si l'artiste doit être inclus en fonction de la recherche
 		includeArtist := strings.Contains(strings.ToLower(artist.Name), queryLower) ||
 			dateSearch && artist.CreationDate == queryInt ||
 			strings.Contains(artist.FirstAlbum, query)
@@ -195,7 +192,6 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 		}
 
 		if !includeArtist {
-			// Vérifie si l'artiste doit être inclus en fonction de l'emplacement
 			locations := ga.filterArtistByLocation(query)
 			for _, locArtist := range locations {
 				if locArtist.ID == artist.ID {
@@ -206,7 +202,6 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 		}
 
 		if includeArtist {
-			// Vérifie si toutes les cases sont décochées ou si l'artiste a le bon nombre de membres
 			if allUnchecked || ga.checkedMembers[len(artist.Members)] {
 				card := ga.createCard(artist)
 				if !addedCards[artist.ID] {
@@ -217,6 +212,5 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 		}
 	}
 
-	// Retourne les cartes filtrées
 	return filtered
 }
