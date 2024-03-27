@@ -173,63 +173,53 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 
 	addedCards := make(map[int]bool)
 
-	allUnchecked := true
-	for _, checked := range ga.checkedMembers {
-		if checked {
-			allUnchecked = false
-			break
-		}
-	}
-
 	for _, artist := range ga.artists {
-		if !allUnchecked && !ga.checkedMembers[len(artist.Members)] {
-			continue
+		// Vérifie si toutes les cases sont décochées
+		allUnchecked := true
+		for _, checked := range ga.checkedMembers {
+			if checked {
+				allUnchecked = false
+				break
+			}
 		}
 
-		if strings.Contains(strings.ToLower(artist.Name), queryLower) {
-			card := ga.createCard(artist)
-			if !addedCards[artist.ID] {
-				filtered = append(filtered, card)
-				addedCards[artist.ID] = true
-			}
-		} else {
+		// Vérifie si l'artiste doit être inclus en fonction de la recherche
+		includeArtist := strings.Contains(strings.ToLower(artist.Name), queryLower) ||
+			dateSearch && artist.CreationDate == queryInt ||
+			strings.Contains(artist.FirstAlbum, query)
+
+		if !includeArtist {
 			for _, member := range artist.Members {
 				if strings.Contains(strings.ToLower(member), queryLower) {
-					card := ga.createCard(artist)
-					if !addedCards[artist.ID] {
-						filtered = append(filtered, card)
-						addedCards[artist.ID] = true
-					}
+					includeArtist = true
 					break
 				}
 			}
 		}
 
-		if dateSearch && artist.CreationDate == queryInt {
-			card := ga.createCard(artist)
-			if !addedCards[artist.ID] {
-				filtered = append(filtered, card)
-				addedCards[artist.ID] = true
+		if !includeArtist {
+			// Vérifie si l'artiste doit être inclus en fonction de l'emplacement
+			locations := ga.filterArtistByLocation(query)
+			for _, locArtist := range locations {
+				if locArtist.ID == artist.ID {
+					includeArtist = true
+					break
+				}
 			}
 		}
 
-		if strings.Contains(artist.FirstAlbum, query) {
-			card := ga.createCard(artist)
-			if !addedCards[artist.ID] {
-				filtered = append(filtered, card)
-				addedCards[artist.ID] = true
+		if includeArtist {
+			// Vérifie si toutes les cases sont décochées ou si l'artiste a le bon nombre de membres
+			if allUnchecked || ga.checkedMembers[len(artist.Members)] {
+				card := ga.createCard(artist)
+				if !addedCards[artist.ID] {
+					filtered = append(filtered, card)
+					addedCards[artist.ID] = true
+				}
 			}
 		}
 	}
 
-	filteredByLocation := ga.filterArtistByLocation(query)
-	for _, artist := range filteredByLocation {
-		card := ga.createCard(artist)
-		if !addedCards[artist.ID] {
-			filtered = append(filtered, card)
-			addedCards[artist.ID] = true
-		}
-	}
-
+	// Retourne les cartes filtrées
 	return filtered
 }
