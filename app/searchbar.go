@@ -161,8 +161,18 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 
 	addedCards := make(map[int]bool)
 
-	if query == "" {
-		return ga.createArtistCards()
+	// Créer seulement les cartes avec le nombre de membres coché
+	if len(ga.checkedMembers) > 0 {
+		for _, artist := range ga.artists {
+			if ga.checkedMembers[len(artist.Members)] {
+				card := ga.createCard(artist)
+				if !addedCards[artist.ID] {
+					filtered = append(filtered, card)
+					addedCards[artist.ID] = true
+				}
+			}
+		}
+		return filtered
 	}
 
 	for _, artist := range ga.artists {

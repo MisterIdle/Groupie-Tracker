@@ -37,7 +37,6 @@ func (ga *GroupieApp) Run() {
 		log.Fatal("Error fetching artists:", err)
 	}
 
-	// Déterminer le nombre maximum de membres dans un groupe
 	maxMembers := 0
 	for _, artist := range ga.artists {
 		if len(artist.Members) > maxMembers {
@@ -47,15 +46,12 @@ func (ga *GroupieApp) Run() {
 
 	memberText := widget.NewLabel("Members:")
 
-	// Créer automatiquement les cases à cocher pour le nombre de membres
 	memberCheckboxes := make([]fyne.CanvasObject, maxMembers)
 	for i := 0; i < maxMembers; i++ {
 		num := i + 1
 		memberCheckboxes[i] = widget.NewCheck(fmt.Sprintf("%d", num), func(checked bool) {
 			ga.checkedMembers[num] = checked
 			ga.searchArtists(ga.search.Text)
-
-			fmt.Println("Checked members:", ga.checkedMembers)
 		})
 	}
 
