@@ -3,6 +3,8 @@ package app
 import (
 	"fmt"
 	"log"
+	"sort"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -62,8 +64,7 @@ func (ga *GroupieApp) Run() {
 		ga.searchArtists(ga.search.Text)
 	})
 
-	// Déclarez une carte pour garder une trace des villes déjà ajoutées
-	cityMap := make(map[string]bool)
+	cityMap := make(map[string]map[string]bool)
 
 	for _, artist := range ga.artists {
 		artistLocations, err := fetchLocations(artist.ID)
@@ -72,13 +73,43 @@ func (ga *GroupieApp) Run() {
 			continue
 		}
 
-		// Ajoutez uniquement les nouvelles villes à la liste déroulante
 		for _, location := range artistLocations {
-			if !cityMap[location] {
-				cityDropdown.Options = append(cityDropdown.Options, location)
-				// Marquez la ville comme déjà ajoutée
-				cityMap[location] = true
+			parts := strings.Split(location, "-")
+			if len(parts) != 2 {
+				log.Printf("Invalid location format: %s\n", location)
+				continue
 			}
+
+			country := strings.TrimSpace(strings.ToUpper(parts[1]))
+			city := strings.TrimSpace(strings.ReplaceAll(parts[0], "_", " "))
+			city = strings.Title(city)
+
+			if _, ok := cityMap[country]; !ok {
+				cityMap[country] = make(map[string]bool)
+			}
+
+			cityMap[country][city] = true
+		}
+	}
+
+	// Tri par pays
+	var countries []string
+	for country := range cityMap {
+		countries = append(countries, country)
+	}
+	sort.Strings(countries)
+
+	for _, country := range countries {
+		cityDropdown.Options = append(cityDropdown.Options, country)
+
+		cities := make([]string, 0)
+		for city := range cityMap[country] {
+			cities = append(cities, city)
+		}
+		sort.Strings(cities)
+
+		for _, city := range cities {
+			cityDropdown.Options = append(cityDropdown.Options, fmt.Sprintf("  - %s", city))
 		}
 	}
 
@@ -89,7 +120,7 @@ func (ga *GroupieApp) Run() {
 
 	membersGroup := container.NewHBox(memberCheckboxes...)
 
-	cityFilter := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
+	cityLabelContainer := container.New(layout.NewHBoxLayout(),
 		cityLabel,
 		cityDropdown,
 	)
@@ -105,7 +136,7 @@ func (ga *GroupieApp) Run() {
 		container.NewVBox(
 			label,
 			filterMember,
-			cityFilter,
+			cityLabelContainer,
 			ga.search,
 			ga.suggestionsBox,
 		),
