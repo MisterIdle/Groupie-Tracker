@@ -45,6 +45,7 @@ func (ga *GroupieApp) Run() {
 	}
 
 	memberText := widget.NewLabel("Members:")
+	cityLabel := widget.NewLabel("City:")
 
 	memberCheckboxes := make([]fyne.CanvasObject, maxMembers)
 	for i := 0; i < maxMembers; i++ {
@@ -57,12 +58,41 @@ func (ga *GroupieApp) Run() {
 		})
 	}
 
+	cityDropdown := widget.NewSelect([]string{"All"}, func(city string) {
+		ga.searchArtists(ga.search.Text)
+	})
+
+	// Déclarez une carte pour garder une trace des villes déjà ajoutées
+	cityMap := make(map[string]bool)
+
+	for _, artist := range ga.artists {
+		artistLocations, err := fetchLocations(artist.ID)
+		if err != nil {
+			log.Printf("Error fetching locations for artist %s: %v\n", artist.Name, err)
+			continue
+		}
+
+		// Ajoutez uniquement les nouvelles villes à la liste déroulante
+		for _, location := range artistLocations {
+			if !cityMap[location] {
+				cityDropdown.Options = append(cityDropdown.Options, location)
+				// Marquez la ville comme déjà ajoutée
+				cityMap[location] = true
+			}
+		}
+	}
+
 	ga.search = widget.NewEntry()
 	ga.search.SetPlaceHolder("Search a group or artist")
 
 	ga.suggestionsBox = container.NewVBox()
 
 	membersGroup := container.NewHBox(memberCheckboxes...)
+
+	cityFilter := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
+		cityLabel,
+		cityDropdown,
+	)
 
 	filterMember := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
 		container.NewHBox(
@@ -75,6 +105,7 @@ func (ga *GroupieApp) Run() {
 		container.NewVBox(
 			label,
 			filterMember,
+			cityFilter,
 			ga.search,
 			ga.suggestionsBox,
 		),
