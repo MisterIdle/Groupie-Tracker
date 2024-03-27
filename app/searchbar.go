@@ -11,9 +11,7 @@ import (
 )
 
 func (ga *GroupieApp) searchArtists(query string) {
-	ga.showLoadingText(true)
 	filteredCards := ga.filterCards(query)
-	ga.showLoadingText(false)
 
 	if len(filteredCards) == 0 {
 		noResultsLabel := widget.NewLabel("Aucun résultat trouvé pour la recherche : " + query)
@@ -26,14 +24,6 @@ func (ga *GroupieApp) searchArtists(query string) {
 	ga.content.Objects[1] = filteredContent
 	ga.content.Refresh()
 	ga.search.SetText("")
-}
-
-func (ga *GroupieApp) showLoadingText(show bool) {
-	if show {
-		ga.content.Objects[1] = widget.NewLabel("Chargement...")
-	} else {
-		ga.content.Objects[1] = container.NewVScroll(container.NewGridWithColumns(3, ga.createArtistCards()...))
-	}
 }
 
 func (ga *GroupieApp) updateSuggestions(query string) {
@@ -59,19 +49,22 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 			if len(ga.suggestionsBox.Objects) >= 6 {
 				break
 			}
-			label := item.Name
-			if len(item.Members) > 0 {
-				label += " (" + strings.Join(item.Members, ", ") + ")"
-			}
-			button := widget.NewButton(label, func(artist Artist) func() {
-				return func() {
-					ga.searchArtists(artist.Name)
-				}
-			}(item))
-			button.Importance = widget.HighImportance
-			button.Alignment = widget.ButtonAlignLeading
 
-			ga.suggestionsBox.Add(button)
+			if ga.checkedMembers[len(item.Members)] {
+				label := item.Name
+				if len(item.Members) > 0 {
+					label += " (" + strings.Join(item.Members, ", ") + ")"
+				}
+				button := widget.NewButton(label, func(artist Artist) func() {
+					return func() {
+						ga.searchArtists(artist.Name)
+					}
+				}(item))
+				button.Importance = widget.HighImportance
+				button.Alignment = widget.ButtonAlignLeading
+
+				ga.suggestionsBox.Add(button)
+			}
 		}
 	}
 }

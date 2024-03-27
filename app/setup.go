@@ -19,6 +19,7 @@ type GroupieApp struct {
 	suggestionsBox *fyne.Container
 	content        *fyne.Container
 	tabs           *container.AppTabs
+	checkedMembers map[int]bool // Stocke l'état des cases cochées
 }
 
 func (ga *GroupieApp) Run() {
@@ -51,14 +52,17 @@ func (ga *GroupieApp) Run() {
 	for i := 0; i < maxMembers; i++ {
 		num := i + 1
 		memberCheckboxes[i] = widget.NewCheck(fmt.Sprintf("%d", num), func(checked bool) {
-			// Insérez ici la logique pour gérer le cas où 'num' membres sont sélectionnés
+			ga.checkedMembers[num] = checked
+			ga.searchArtists(ga.search.Text)
+
+			fmt.Println("Checked members:", ga.checkedMembers)
 		})
 	}
 
 	ga.search = widget.NewEntry()
 	ga.search.SetPlaceHolder("Search a group or artist")
 
-	ga.suggestionsBox = container.NewHBox()
+	ga.suggestionsBox = container.NewVBox()
 
 	membersGroup := container.NewHBox(memberCheckboxes...)
 
@@ -97,6 +101,8 @@ func (ga *GroupieApp) Run() {
 	ga.search.OnChanged = ga.updateSuggestions
 
 	ga.search.OnSubmitted = ga.searchArtists
+
+	ga.checkedMembers = make(map[int]bool) // Initialiser checkedMembers
 
 	ga.window.ShowAndRun()
 }
