@@ -18,6 +18,7 @@ func (ga *GroupieApp) searchArtists(query string) {
 		ga.content.Objects[1] = noResultsLabel
 		ga.content.Refresh()
 		ga.search.SetText("")
+		ga.cityDropdown.SetSelected("all")
 		return
 	}
 	filteredContent := container.NewVScroll(container.NewGridWithColumns(3, filteredCards...))
@@ -39,11 +40,13 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 			filtered = ga.filterArtistsAndGroups(query)
 		}
 
-		filteredByLocation := ga.filterArtistByLocation(query)
+		filteredByLocation := ga.filterArtistByLocation(ga.city)
 		filtered = mergeArtists(filtered, filteredByLocation)
 
 		filteredByAlbum := ga.filterArtistByFirstAlbum(query)
 		filtered = mergeArtists(filtered, filteredByAlbum)
+
+		citySelected := ga.city != "all"
 
 		allUnchecked := true
 		for _, checked := range ga.checkedMembers {
@@ -54,27 +57,43 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 		}
 
 		for _, item := range filtered {
-			if len(ga.suggestionsBox.Objects) >= 6 {
+			if len(ga.suggestionsBox.Objects) >= 5 {
 				break
 			}
 
-			if allUnchecked || ga.checkedMembers[len(item.Members)] {
-				label := item.Name
-				if len(item.Members) > 0 {
-					label += " (" + strings.Join(item.Members, ", ") + ")"
+			if allUnchecked || ga.checkedMembers[len(item.Members)] || !citySelected {
+				loc, err := fetchLocations(item.ID)
+				if err != nil {
+					fmt.Println("Erreur lors de la récupération des emplacements pour l'artiste", item.Name, ":", err)
+					continue
 				}
-				button := widget.NewButton(label, func(artist Artist) func() {
-					return func() {
-						ga.searchArtists(artist.Name)
-					}
-				}(item))
-				button.Importance = widget.HighImportance
-				button.Alignment = widget.ButtonAlignLeading
 
-				ga.suggestionsBox.Add(button)
+				if !citySelected || (len(loc) > 0 && containsLocation(loc, ga.city)) {
+					label := item.Name
+					if len(item.Members) > 0 {
+						label += " (" + strings.Join(item.Members, ", ") + ")"
+					}
+					button := widget.NewButton(label, func(artist Artist) func() {
+						return func() {
+							ga.searchArtists(artist.Name)
+						}
+					}(item))
+					button.Importance = widget.HighImportance
+					button.Alignment = widget.ButtonAlignLeading
+					ga.suggestionsBox.Add(button)
+				}
 			}
 		}
 	}
+}
+
+func containsLocation(locations []string, city string) bool {
+	for _, loc := range locations {
+		if strings.Contains(strings.ToLower(loc), strings.ToLower(city)) {
+			return true
+		}
+	}
+	return false
 }
 
 func mergeArtists(a, b []Artist) []Artist {
