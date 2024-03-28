@@ -15,15 +15,17 @@ import (
 )
 
 type GroupieApp struct {
-	window         fyne.Window
-	artists        []Artist
-	search         *widget.Entry
-	suggestionsBox *fyne.Container
-	content        *fyne.Container
-	tabs           *container.AppTabs
-	checkedMembers map[int]bool
-	cityDropdown   *widget.Select
-	city           string
+	window             fyne.Window
+	artists            []Artist
+	search             *widget.Entry
+	suggestionsBox     *fyne.Container
+	content            *fyne.Container
+	tabs               *container.AppTabs
+	checkedMembers     map[int]bool
+	cityDropdown       *widget.Select
+	city               string
+	creationDateSlider *widget.Slider
+	createDate         int
 }
 
 func (ga *GroupieApp) Run() {
@@ -50,6 +52,7 @@ func (ga *GroupieApp) Run() {
 
 	memberText := widget.NewLabel("Members:")
 	cityLabel := widget.NewLabel("City:")
+	sliderLabel := widget.NewLabel("Creation date:")
 
 	memberCheckboxes := make([]fyne.CanvasObject, maxMembers)
 	for i := 0; i < maxMembers; i++ {
@@ -124,12 +127,27 @@ func (ga *GroupieApp) Run() {
 		ga.searchArtists(cleanedCity)
 	}
 
+	minDate, maxDate, err := fetchArtistsMinMaxCreationDate()
+	if err != nil {
+		log.Fatal("Error fetching min and max creation date:", err)
+	}
+
+	ga.creationDateSlider = widget.NewSlider(float64(minDate), float64(maxDate))
+	ga.creationDateSlider.OnChanged = func(value float64) {
+		sliderLabel.SetText(fmt.Sprintf("Creation date: %.0f", value))
+	}
+
 	ga.search = widget.NewEntry()
 	ga.search.SetPlaceHolder("Search a group or artist")
 
 	ga.suggestionsBox = container.NewVBox()
 
 	membersGroup := container.NewHBox(memberCheckboxes...)
+
+	sliderLabelContainer := container.New(layout.NewVBoxLayout(),
+		sliderLabel,
+		ga.creationDateSlider,
+	)
 
 	cityLabelContainer := container.New(layout.NewHBoxLayout(),
 		cityLabel,
@@ -148,6 +166,7 @@ func (ga *GroupieApp) Run() {
 			label,
 			filterMember,
 			cityLabelContainer,
+			sliderLabelContainer,
 			ga.search,
 			ga.suggestionsBox,
 		),
