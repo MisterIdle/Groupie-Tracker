@@ -25,7 +25,8 @@ type GroupieApp struct {
 	cityDropdown       *widget.Select
 	city               string
 	creationDateSlider *widget.Slider
-	createDate         int
+	creationDateToggle *widget.Check
+	creationDate       int
 }
 
 func (ga *GroupieApp) Run() {
@@ -122,8 +123,6 @@ func (ga *GroupieApp) Run() {
 		cleanedCity := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(selected, "-", "")))
 		cleanedCity = strings.ReplaceAll(cleanedCity, " ", "_")
 		ga.city = cleanedCity
-
-		fmt.Println("Ville sélectionnée :", cleanedCity)
 		ga.searchArtists(cleanedCity)
 	}
 
@@ -132,9 +131,30 @@ func (ga *GroupieApp) Run() {
 		log.Fatal("Error fetching min and max creation date:", err)
 	}
 
+	ga.creationDateToggle = widget.NewCheck("All", func(checked bool) {
+		if !checked {
+			sliderLabel.SetText(fmt.Sprintf("Creation date: %d", minDate))
+			ga.creationDateSlider.SetValue(float64(minDate))
+			ga.creationDateSlider.Hidden = false
+		} else {
+			ga.creationDateSlider.Hidden = true
+			sliderLabel.SetText("Creation date: All")
+			ga.creationDate = 0  // Reset creation date
+			ga.searchArtists("") // Perform search without creation date filter
+		}
+	})
+
 	ga.creationDateSlider = widget.NewSlider(float64(minDate), float64(maxDate))
+
+	ga.creationDateSlider.SetValue(float64(minDate))
+	sliderLabel.SetText(fmt.Sprintf("Creation date: %d", minDate))
+
 	ga.creationDateSlider.OnChanged = func(value float64) {
 		sliderLabel.SetText(fmt.Sprintf("Creation date: %.0f", value))
+		ga.creationDateToggle.Checked = false
+		ga.creationDate = int(value)
+		valueStr := fmt.Sprintf("%.0f", value)
+		ga.searchArtists(valueStr)
 	}
 
 	ga.search = widget.NewEntry()
@@ -145,7 +165,10 @@ func (ga *GroupieApp) Run() {
 	membersGroup := container.NewHBox(memberCheckboxes...)
 
 	sliderLabelContainer := container.New(layout.NewVBoxLayout(),
-		sliderLabel,
+		container.NewHBox(
+			sliderLabel,
+			ga.creationDateToggle,
+		),
 		ga.creationDateSlider,
 	)
 
@@ -192,7 +215,7 @@ func (ga *GroupieApp) Run() {
 
 	ga.search.OnSubmitted = ga.searchArtists
 
-	ga.checkedMembers = make(map[int]bool) // Initialiser checkedMembers
+	ga.checkedMembers = make(map[int]bool)
 
 	ga.window.ShowAndRun()
 }
