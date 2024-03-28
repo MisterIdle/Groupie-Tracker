@@ -65,6 +65,8 @@ func (ga *GroupieApp) Run() {
 		ga.searchArtists(ga.search.Text)
 	})
 
+	ga.cityDropdown.Selected = "All"
+
 	cityMap := make(map[string]map[string]bool)
 
 	for _, artist := range ga.artists {

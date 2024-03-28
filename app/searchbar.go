@@ -11,6 +11,14 @@ import (
 )
 
 func (ga *GroupieApp) searchArtists(query string) {
+	if query == "all" {
+		query = ""
+	}
+
+	if query == "" {
+		ga.cityDropdown.Selected = "All"
+	}
+
 	filteredCards := ga.filterCards(query)
 
 	if len(filteredCards) == 0 {
@@ -18,7 +26,6 @@ func (ga *GroupieApp) searchArtists(query string) {
 		ga.content.Objects[1] = noResultsLabel
 		ga.content.Refresh()
 		ga.search.SetText("")
-		ga.cityDropdown.SetSelected("all")
 		return
 	}
 	filteredContent := container.NewVScroll(container.NewGridWithColumns(3, filteredCards...))
