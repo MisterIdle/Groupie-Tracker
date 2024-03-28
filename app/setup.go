@@ -22,6 +22,8 @@ type GroupieApp struct {
 	content        *fyne.Container
 	tabs           *container.AppTabs
 	checkedMembers map[int]bool
+	cityDropdown   *widget.Select
+	city           string
 }
 
 func (ga *GroupieApp) Run() {
@@ -60,7 +62,7 @@ func (ga *GroupieApp) Run() {
 		})
 	}
 
-	cityDropdown := widget.NewSelect([]string{"All"}, func(city string) {
+	ga.cityDropdown = widget.NewSelect([]string{"All"}, func(city string) {
 		ga.searchArtists(ga.search.Text)
 	})
 
@@ -92,7 +94,6 @@ func (ga *GroupieApp) Run() {
 		}
 	}
 
-	// Tri par pays
 	var countries []string
 	for country := range cityMap {
 		countries = append(countries, country)
@@ -100,7 +101,7 @@ func (ga *GroupieApp) Run() {
 	sort.Strings(countries)
 
 	for _, country := range countries {
-		cityDropdown.Options = append(cityDropdown.Options, country)
+		ga.cityDropdown.Options = append(ga.cityDropdown.Options, country)
 
 		cities := make([]string, 0)
 		for city := range cityMap[country] {
@@ -109,8 +110,17 @@ func (ga *GroupieApp) Run() {
 		sort.Strings(cities)
 
 		for _, city := range cities {
-			cityDropdown.Options = append(cityDropdown.Options, fmt.Sprintf("  - %s", city))
+			ga.cityDropdown.Options = append(ga.cityDropdown.Options, fmt.Sprintf("  - %s", city))
 		}
+	}
+
+	ga.cityDropdown.OnChanged = func(selected string) {
+		cleanedCity := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(selected, "-", "")))
+		cleanedCity = strings.ReplaceAll(cleanedCity, " ", "_")
+		ga.city = cleanedCity
+
+		fmt.Println("Ville sélectionnée :", cleanedCity)
+		ga.searchArtists(cleanedCity)
 	}
 
 	ga.search = widget.NewEntry()
@@ -122,7 +132,7 @@ func (ga *GroupieApp) Run() {
 
 	cityLabelContainer := container.New(layout.NewHBoxLayout(),
 		cityLabel,
-		cityDropdown,
+		ga.cityDropdown,
 	)
 
 	filterMember := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
