@@ -111,7 +111,6 @@ func (ga *GroupieApp) createArtistDetailsTab(artist Artist) fyne.CanvasObject {
 		creationDateLabel,
 	)
 
-	// Style pour le container des détails
 	detailsContent.Resize(detailsContent.MinSize())
 
 	detailsScroll := container.NewScroll(detailsContent)

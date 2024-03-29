@@ -139,8 +139,8 @@ func (ga *GroupieApp) Run() {
 		} else {
 			ga.creationDateSlider.Hidden = true
 			sliderLabel.SetText("Creation date: All")
-			ga.creationDate = 0  // Reset creation date
-			ga.searchArtists("") // Perform search without creation date filter
+			ga.creationDate = 0
+			ga.searchArtists("")
 		}
 	})
 

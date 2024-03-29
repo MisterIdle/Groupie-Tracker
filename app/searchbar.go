@@ -41,17 +41,26 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 	if query != "" {
 		queryInt, err := strconv.Atoi(query)
 
-		if err == nil {
-			filtered = ga.filterArtistsByCreationDate(queryInt)
-		} else {
-			filtered = ga.filterArtistsAndGroups(query)
+		for _, artist := range ga.artists {
+			if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
+				filtered = append(filtered, artist)
+			} else {
+				for _, member := range artist.Members {
+					if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
+						filtered = append(filtered, artist)
+						break
+					}
+				}
+			}
+
+			if err == nil && artist.CreationDate == queryInt {
+				filtered = append(filtered, artist)
+			}
+
+			if strings.Contains(artist.FirstAlbum, query) {
+				filtered = append(filtered, artist)
+			}
 		}
-
-		filteredByLocation := ga.filterArtistByLocation(ga.city)
-		filtered = mergeArtists(filtered, filteredByLocation)
-
-		filteredByAlbum := ga.filterArtistByFirstAlbum(query)
-		filtered = mergeArtists(filtered, filteredByAlbum)
 
 		citySelected := ga.city != "all"
 
@@ -101,66 +110,6 @@ func containsLocation(locations []string, city string) bool {
 		}
 	}
 	return false
-}
-
-func mergeArtists(a, b []Artist) []Artist {
-	merged := make(map[int]Artist)
-	for _, artist := range a {
-		merged[artist.ID] = artist
-	}
-	for _, artist := range b {
-		merged[artist.ID] = artist
-	}
-	result := make([]Artist, 0, len(merged))
-	for _, artist := range merged {
-		result = append(result, artist)
-	}
-	return result
-}
-
-func (ga *GroupieApp) filterArtistsAndGroups(query string) []Artist {
-	var filtered []Artist
-
-	for _, artist := range ga.artists {
-		if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
-			filtered = append(filtered, artist)
-		} else {
-			for _, member := range artist.Members {
-				if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
-					filtered = append(filtered, artist)
-					break
-				}
-			}
-		}
-	}
-
-	return filtered
-}
-
-func (ga *GroupieApp) filterArtistsByCreationDate(date int) []Artist {
-	var filtered []Artist
-
-	for _, artist := range ga.artists {
-		yearStr := strconv.Itoa(artist.CreationDate)
-
-		if strings.Contains(yearStr, strconv.Itoa(date)) {
-			filtered = append(filtered, artist)
-		}
-	}
-
-	return filtered
-}
-
-func (ga *GroupieApp) filterArtistByFirstAlbum(album string) []Artist {
-	var filtered []Artist
-
-	for _, artist := range ga.artists {
-		if strings.Contains(artist.FirstAlbum, album) {
-			filtered = append(filtered, artist)
-		}
-	}
-
-	return filtered
 }
 
 func (ga *GroupieApp) filterArtistByLocation(location string) []Artist {
