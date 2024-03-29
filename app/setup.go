@@ -143,6 +143,7 @@ func (ga *GroupieApp) Run() {
 			ga.searchArtists("")
 		}
 	})
+	ga.creationDateToggle.Checked = true
 
 	ga.creationDateSlider = widget.NewSlider(float64(minDate), float64(maxDate))
 
