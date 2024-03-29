@@ -133,16 +133,10 @@ func (ga *GroupieApp) filterArtistByLocation(location string) []Artist {
 }
 
 func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
-	queryLower := strings.ToLower(query)
 	var filtered []fyne.CanvasObject
+	queryLower := strings.ToLower(query)
 	queryInt, err := strconv.Atoi(query)
-	var dateSearch bool
-
-	if err == nil {
-		dateSearch = true
-	}
-
-	addedCards := make(map[int]bool)
+	dateSearch := err == nil
 
 	for _, artist := range ga.artists {
 		allUnchecked := true
@@ -153,20 +147,15 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 			}
 		}
 
-		includeArtist := strings.Contains(strings.ToLower(artist.Name), queryLower) ||
-			dateSearch && artist.CreationDate == queryInt ||
-			strings.Contains(artist.FirstAlbum, query)
+		includeArtist := strings.Contains(strings.ToLower(artist.Name), queryLower)
 
-		if !includeArtist {
-			for _, member := range artist.Members {
-				if strings.Contains(strings.ToLower(member), queryLower) {
-					includeArtist = true
-					break
-				}
-			}
+		// Filtrer par date si une recherche de date est spécifiée
+		if dateSearch && artist.CreationDate == queryInt {
+			includeArtist = true
 		}
 
-		if !includeArtist {
+		// Filtrer par emplacement si une recherche d'emplacement est spécifiée
+		if query != "" {
 			locations := ga.filterArtistByLocation(query)
 			for _, locArtist := range locations {
 				if locArtist.ID == artist.ID {
@@ -176,13 +165,15 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 			}
 		}
 
+		// Nouvelle condition pour filtrer par date de création
+		if !includeArtist && ga.creationDate != 0 {
+			includeArtist = artist.CreationDate == ga.creationDate
+		}
+
 		if includeArtist {
 			if allUnchecked || ga.checkedMembers[len(artist.Members)] {
 				card := ga.createCard(artist)
-				if !addedCards[artist.ID] {
-					filtered = append(filtered, card)
-					addedCards[artist.ID] = true
-				}
+				filtered = append(filtered, card)
 			}
 		}
 	}

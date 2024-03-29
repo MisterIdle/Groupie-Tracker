@@ -123,6 +123,8 @@ func (ga *GroupieApp) Run() {
 		cleanedCity := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(selected, "-", "")))
 		cleanedCity = strings.ReplaceAll(cleanedCity, " ", "_")
 		ga.city = cleanedCity
+		ga.creationDateToggle.Checked = true
+		ga.creationDate = 0
 		ga.searchArtists(cleanedCity)
 	}
 
@@ -135,9 +137,7 @@ func (ga *GroupieApp) Run() {
 		if !checked {
 			sliderLabel.SetText(fmt.Sprintf("Creation date: %d", minDate))
 			ga.creationDateSlider.SetValue(float64(minDate))
-			ga.creationDateSlider.Hidden = false
 		} else {
-			ga.creationDateSlider.Hidden = true
 			sliderLabel.SetText("Creation date: All")
 			ga.creationDate = 0
 			ga.searchArtists("")
@@ -153,6 +153,7 @@ func (ga *GroupieApp) Run() {
 		sliderLabel.SetText(fmt.Sprintf("Creation date: %.0f", value))
 		ga.creationDateToggle.Checked = false
 		ga.creationDate = int(value)
+		ga.cityDropdown.Selected = "All"
 		valueStr := fmt.Sprintf("%.0f", value)
 		ga.searchArtists(valueStr)
 	}
