@@ -149,12 +149,10 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 
 		includeArtist := strings.Contains(strings.ToLower(artist.Name), queryLower)
 
-		// Filtrer par date si une recherche de date est spécifiée
 		if dateSearch && artist.CreationDate == queryInt {
 			includeArtist = true
 		}
 
-		// Filtrer par emplacement si une recherche d'emplacement est spécifiée
 		if query != "" {
 			locations := ga.filterArtistByLocation(query)
 			for _, locArtist := range locations {
@@ -165,7 +163,6 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 			}
 		}
 
-		// Nouvelle condition pour filtrer par date de création
 		if !includeArtist && ga.creationDate != 0 {
 			includeArtist = artist.CreationDate == ga.creationDate
 		}

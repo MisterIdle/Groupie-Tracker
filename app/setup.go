@@ -60,6 +60,7 @@ func (ga *GroupieApp) Run() {
 		num := i + 1
 		memberCheckboxes[i] = widget.NewCheck(fmt.Sprintf("%d", num), func(checked bool) {
 			ga.checkedMembers[num] = checked
+			ga.creationDateToggle.Checked = true
 			ga.searchArtists(ga.search.Text)
 			ga.cityDropdown.Selected = "All"
 		})

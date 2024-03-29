@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -91,16 +92,18 @@ func (ga *GroupieApp) createArtistDetailsTab(artist Artist) fyne.CanvasObject {
 	membreText := widget.NewLabelWithStyle("Members", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 	membersLabel := widget.NewLabelWithStyle(strings.Join(artist.Members, "\n"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	//closeButton := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
-	//	for i, tab := range ga.tabs.Items {
-	//		if tab.Text == artist.Name {
-	//			ga.tabs.RemoveIndex(i)
-	//			return
-	//		}
-	//	}
-	//})
+	closeButton := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
+		for i, tab := range ga.tabs.Items {
+			if tab.Text == artist.Name {
+				ga.tabs.RemoveIndex(i)
+				return
+			}
+		}
+	})
 
 	detailsContent := container.NewVBox(
+		container.NewBorder(nil, nil, nil, closeButton, nameLabel),
+
 		nameLabel,
 		img,
 
