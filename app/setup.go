@@ -146,6 +146,19 @@ func (ga *GroupieApp) Run() {
 	})
 	ga.creationDateToggle.Checked = true
 
+	changeColor := false
+
+	themeButton := widget.NewButtonWithIcon("", theme.ColorPaletteIcon(), func() {
+		changeColor = !changeColor
+		if changeColor {
+			a.Settings().SetTheme(theme.DarkTheme())
+		} else {
+			a.Settings().SetTheme(theme.LightTheme())
+		}
+
+		ga.window.SetContent(ga.tabs)
+	})
+
 	ga.creationDateSlider = widget.NewSlider(float64(minDate), float64(maxDate))
 
 	ga.creationDateSlider.SetValue(float64(minDate))
@@ -189,7 +202,10 @@ func (ga *GroupieApp) Run() {
 
 	header := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
 		container.NewVBox(
-			label,
+			container.NewVBox(
+				label,
+				container.NewBorder(nil, nil, nil, themeButton),
+			),
 			filterMember,
 			cityLabelContainer,
 			sliderLabelContainer,
@@ -222,28 +238,4 @@ func (ga *GroupieApp) Run() {
 
 	ga.window.ShowAndRun()
 
-	//code poour le bouton pour changer la couleur de l'app
-	w := a.NewWindow("GROUPIE-TRACKER")
-	// Créer un bouton pour changer la couleur de l'application
-	var changeColor bool
-	button := widget.NewButton("Change the background color", func() {
-		changeColor = !changeColor
-		if changeColor {
-			// Changer la couleur de l'application en noir et blanc
-			theme := theme.DarkTheme()
-			fyne.CurrentApp().Settings().SetTheme(theme)
-		} else {
-			// Rétablir la couleur de l'application par défaut
-			theme := theme.LightTheme()
-			fyne.CurrentApp().Settings().SetTheme(theme)
-		}
-		// Appliquer les changements de couleur à la fenêtre
-		w.Canvas().Refresh(w.Content())
-	})
-
-	// Créer un conteneur pour centrer le bouton
-	content := container.NewCenter(button)
-
-	// Définir le contenu de la fenêtre
-	w.SetContent(content)
 }
