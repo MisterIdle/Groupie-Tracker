@@ -15,13 +15,18 @@ import (
 )
 
 type GroupieApp struct {
-	window         fyne.Window
-	artists        []Artist
-	search         *widget.Entry
-	suggestionsBox *fyne.Container
-	content        *fyne.Container
-	tabs           *container.AppTabs
-	checkedMembers map[int]bool
+	window             fyne.Window
+	artists            []Artist
+	search             *widget.Entry
+	suggestionsBox     *fyne.Container
+	content            *fyne.Container
+	tabs               *container.AppTabs
+	checkedMembers     map[int]bool
+	cityDropdown       *widget.Select
+	city               string
+	creationDateSlider *widget.Slider
+	creationDateToggle *widget.Check
+	creationDate       int
 }
 
 func (ga *GroupieApp) Run() {
@@ -48,21 +53,24 @@ func (ga *GroupieApp) Run() {
 
 	memberText := widget.NewLabel("Members:")
 	cityLabel := widget.NewLabel("City:")
+	sliderLabel := widget.NewLabel("Creation date:")
 
 	memberCheckboxes := make([]fyne.CanvasObject, maxMembers)
 	for i := 0; i < maxMembers; i++ {
 		num := i + 1
 		memberCheckboxes[i] = widget.NewCheck(fmt.Sprintf("%d", num), func(checked bool) {
 			ga.checkedMembers[num] = checked
+			ga.creationDateToggle.Checked = true
 			ga.searchArtists(ga.search.Text)
-
-			fmt.Println(ga.checkedMembers)
+			ga.cityDropdown.Selected = "All"
 		})
 	}
 
-	cityDropdown := widget.NewSelect([]string{"All"}, func(city string) {
+	ga.cityDropdown = widget.NewSelect([]string{"All"}, func(city string) {
 		ga.searchArtists(ga.search.Text)
 	})
+
+	ga.cityDropdown.Selected = "All"
 
 	cityMap := make(map[string]map[string]bool)
 
@@ -92,7 +100,6 @@ func (ga *GroupieApp) Run() {
 		}
 	}
 
-	// Tri par pays
 	var countries []string
 	for country := range cityMap {
 		countries = append(countries, country)
@@ -100,7 +107,7 @@ func (ga *GroupieApp) Run() {
 	sort.Strings(countries)
 
 	for _, country := range countries {
-		cityDropdown.Options = append(cityDropdown.Options, country)
+		ga.cityDropdown.Options = append(ga.cityDropdown.Options, country)
 
 		cities := make([]string, 0)
 		for city := range cityMap[country] {
@@ -109,8 +116,48 @@ func (ga *GroupieApp) Run() {
 		sort.Strings(cities)
 
 		for _, city := range cities {
-			cityDropdown.Options = append(cityDropdown.Options, fmt.Sprintf("  - %s", city))
+			ga.cityDropdown.Options = append(ga.cityDropdown.Options, fmt.Sprintf("  - %s", city))
 		}
+	}
+
+	ga.cityDropdown.OnChanged = func(selected string) {
+		cleanedCity := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(selected, "-", "")))
+		cleanedCity = strings.ReplaceAll(cleanedCity, " ", "_")
+		ga.city = cleanedCity
+		ga.creationDateToggle.Checked = true
+		ga.creationDate = 0
+		ga.searchArtists(cleanedCity)
+	}
+
+	minDate, maxDate, err := fetchArtistsMinMaxCreationDate()
+	if err != nil {
+		log.Fatal("Error fetching min and max creation date:", err)
+	}
+
+	ga.creationDateToggle = widget.NewCheck("All", func(checked bool) {
+		if !checked {
+			sliderLabel.SetText(fmt.Sprintf("Creation date: %d", minDate))
+			ga.creationDateSlider.SetValue(float64(minDate))
+		} else {
+			sliderLabel.SetText("Creation date: All")
+			ga.creationDate = 0
+			ga.searchArtists("")
+		}
+	})
+	ga.creationDateToggle.Checked = true
+
+	ga.creationDateSlider = widget.NewSlider(float64(minDate), float64(maxDate))
+
+	ga.creationDateSlider.SetValue(float64(minDate))
+	sliderLabel.SetText(fmt.Sprintf("Creation date: %d", minDate))
+
+	ga.creationDateSlider.OnChanged = func(value float64) {
+		sliderLabel.SetText(fmt.Sprintf("Creation date: %.0f", value))
+		ga.creationDateToggle.Checked = false
+		ga.creationDate = int(value)
+		ga.cityDropdown.Selected = "All"
+		valueStr := fmt.Sprintf("%.0f", value)
+		ga.searchArtists(valueStr)
 	}
 
 	ga.search = widget.NewEntry()
@@ -120,9 +167,17 @@ func (ga *GroupieApp) Run() {
 
 	membersGroup := container.NewHBox(memberCheckboxes...)
 
+	sliderLabelContainer := container.New(layout.NewVBoxLayout(),
+		container.NewHBox(
+			sliderLabel,
+			ga.creationDateToggle,
+		),
+		ga.creationDateSlider,
+	)
+
 	cityLabelContainer := container.New(layout.NewHBoxLayout(),
 		cityLabel,
-		cityDropdown,
+		ga.cityDropdown,
 	)
 
 	filterMember := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
@@ -137,6 +192,7 @@ func (ga *GroupieApp) Run() {
 			label,
 			filterMember,
 			cityLabelContainer,
+			sliderLabelContainer,
 			ga.search,
 			ga.suggestionsBox,
 		),
@@ -162,7 +218,7 @@ func (ga *GroupieApp) Run() {
 
 	ga.search.OnSubmitted = ga.searchArtists
 
-	ga.checkedMembers = make(map[int]bool) // Initialiser checkedMembers
+	ga.checkedMembers = make(map[int]bool)
 
 	ga.window.ShowAndRun()
 

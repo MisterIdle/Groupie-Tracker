@@ -80,24 +80,23 @@ func fetchLocations(artistID int) ([]string, error) {
 	return locationData.Locations, nil
 }
 
-func preloadData() {
-	_, err := fetchArtists()
-	if err != nil {
-		fmt.Println("Erreur lors du préchargement des artistes:", err)
-	}
-
+func fetchArtistsMinMaxCreationDate() (int, int, error) {
 	artists, err := fetchArtists()
 	if err != nil {
-		fmt.Println("Erreur lors du préchargement des emplacements:", err)
+		return 0, 0, err
 	}
+
+	minCreationDate := artists[0].CreationDate
+	maxCreationDate := artists[0].CreationDate
+
 	for _, artist := range artists {
-		_, err := fetchLocations(artist.ID)
-		if err != nil {
-			fmt.Println("Erreur lors du préchargement des emplacements pour l'artiste", artist.ID, ":", err)
+		if artist.CreationDate < minCreationDate {
+			minCreationDate = artist.CreationDate
+		}
+		if artist.CreationDate > maxCreationDate {
+			maxCreationDate = artist.CreationDate
 		}
 	}
-}
 
-func init() {
-	preloadData()
+	return minCreationDate, maxCreationDate, nil
 }

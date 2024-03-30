@@ -11,6 +11,14 @@ import (
 )
 
 func (ga *GroupieApp) searchArtists(query string) {
+	if query == "all" {
+		query = ""
+	}
+
+	if query == "" {
+		ga.cityDropdown.Selected = "All"
+	}
+
 	filteredCards := ga.filterCards(query)
 
 	if len(filteredCards) == 0 {
@@ -33,17 +41,28 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 	if query != "" {
 		queryInt, err := strconv.Atoi(query)
 
-		if err == nil {
-			filtered = ga.filterArtistsByCreationDate(queryInt)
-		} else {
-			filtered = ga.filterArtistsAndGroups(query)
+		for _, artist := range ga.artists {
+			if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
+				filtered = append(filtered, artist)
+			} else {
+				for _, member := range artist.Members {
+					if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
+						filtered = append(filtered, artist)
+						break
+					}
+				}
+			}
+
+			if err == nil && artist.CreationDate == queryInt {
+				filtered = append(filtered, artist)
+			}
+
+			if strings.Contains(artist.FirstAlbum, query) {
+				filtered = append(filtered, artist)
+			}
 		}
 
-		filteredByLocation := ga.filterArtistByLocation(query)
-		filtered = mergeArtists(filtered, filteredByLocation)
-
-		filteredByAlbum := ga.filterArtistByFirstAlbum(query)
-		filtered = mergeArtists(filtered, filteredByAlbum)
+		citySelected := ga.city != "all"
 
 		allUnchecked := true
 		for _, checked := range ga.checkedMembers {
@@ -54,87 +73,43 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 		}
 
 		for _, item := range filtered {
-			if len(ga.suggestionsBox.Objects) >= 6 {
+			if len(ga.suggestionsBox.Objects) >= 5 {
 				break
 			}
 
-			if allUnchecked || ga.checkedMembers[len(item.Members)] {
-				label := item.Name
-				if len(item.Members) > 0 {
-					label += " (" + strings.Join(item.Members, ", ") + ")"
+			if allUnchecked || ga.checkedMembers[len(item.Members)] || !citySelected {
+				loc, err := fetchLocations(item.ID)
+				if err != nil {
+					fmt.Println("Erreur lors de la récupération des emplacements pour l'artiste", item.Name, ":", err)
+					continue
 				}
-				button := widget.NewButton(label, func(artist Artist) func() {
-					return func() {
-						ga.searchArtists(artist.Name)
+
+				if !citySelected || (len(loc) > 0 && containsLocation(loc, ga.city)) {
+					label := item.Name
+					if len(item.Members) > 0 {
+						label += " (" + strings.Join(item.Members, ", ") + ")"
 					}
-				}(item))
-				button.Importance = widget.HighImportance
-				button.Alignment = widget.ButtonAlignLeading
-
-				ga.suggestionsBox.Add(button)
-			}
-		}
-	}
-}
-
-func mergeArtists(a, b []Artist) []Artist {
-	merged := make(map[int]Artist)
-	for _, artist := range a {
-		merged[artist.ID] = artist
-	}
-	for _, artist := range b {
-		merged[artist.ID] = artist
-	}
-	result := make([]Artist, 0, len(merged))
-	for _, artist := range merged {
-		result = append(result, artist)
-	}
-	return result
-}
-
-func (ga *GroupieApp) filterArtistsAndGroups(query string) []Artist {
-	var filtered []Artist
-
-	for _, artist := range ga.artists {
-		if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
-			filtered = append(filtered, artist)
-		} else {
-			for _, member := range artist.Members {
-				if strings.Contains(strings.ToLower(member), strings.ToLower(query)) {
-					filtered = append(filtered, artist)
-					break
+					button := widget.NewButton(label, func(artist Artist) func() {
+						return func() {
+							ga.searchArtists(artist.Name)
+						}
+					}(item))
+					button.Importance = widget.HighImportance
+					button.Alignment = widget.ButtonAlignLeading
+					ga.suggestionsBox.Add(button)
 				}
 			}
 		}
 	}
-
-	return filtered
 }
 
-func (ga *GroupieApp) filterArtistsByCreationDate(date int) []Artist {
-	var filtered []Artist
-
-	for _, artist := range ga.artists {
-		yearStr := strconv.Itoa(artist.CreationDate)
-
-		if strings.Contains(yearStr, strconv.Itoa(date)) {
-			filtered = append(filtered, artist)
+func containsLocation(locations []string, city string) bool {
+	for _, loc := range locations {
+		if strings.Contains(strings.ToLower(loc), strings.ToLower(city)) {
+			return true
 		}
 	}
-
-	return filtered
-}
-
-func (ga *GroupieApp) filterArtistByFirstAlbum(album string) []Artist {
-	var filtered []Artist
-
-	for _, artist := range ga.artists {
-		if strings.Contains(artist.FirstAlbum, album) {
-			filtered = append(filtered, artist)
-		}
-	}
-
-	return filtered
+	return false
 }
 
 func (ga *GroupieApp) filterArtistByLocation(location string) []Artist {
@@ -158,16 +133,10 @@ func (ga *GroupieApp) filterArtistByLocation(location string) []Artist {
 }
 
 func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
-	queryLower := strings.ToLower(query)
 	var filtered []fyne.CanvasObject
+	queryLower := strings.ToLower(query)
 	queryInt, err := strconv.Atoi(query)
-	var dateSearch bool
-
-	if err == nil {
-		dateSearch = true
-	}
-
-	addedCards := make(map[int]bool)
+	dateSearch := err == nil
 
 	for _, artist := range ga.artists {
 		allUnchecked := true
@@ -178,20 +147,13 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 			}
 		}
 
-		includeArtist := strings.Contains(strings.ToLower(artist.Name), queryLower) ||
-			dateSearch && artist.CreationDate == queryInt ||
-			strings.Contains(artist.FirstAlbum, query)
+		includeArtist := strings.Contains(strings.ToLower(artist.Name), queryLower)
 
-		if !includeArtist {
-			for _, member := range artist.Members {
-				if strings.Contains(strings.ToLower(member), queryLower) {
-					includeArtist = true
-					break
-				}
-			}
+		if dateSearch && artist.CreationDate == queryInt {
+			includeArtist = true
 		}
 
-		if !includeArtist {
+		if query != "" {
 			locations := ga.filterArtistByLocation(query)
 			for _, locArtist := range locations {
 				if locArtist.ID == artist.ID {
@@ -201,13 +163,14 @@ func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 			}
 		}
 
+		if !includeArtist && ga.creationDate != 0 {
+			includeArtist = artist.CreationDate == ga.creationDate
+		}
+
 		if includeArtist {
 			if allUnchecked || ga.checkedMembers[len(artist.Members)] {
 				card := ga.createCard(artist)
-				if !addedCards[artist.ID] {
-					filtered = append(filtered, card)
-					addedCards[artist.ID] = true
-				}
+				filtered = append(filtered, card)
 			}
 		}
 	}
