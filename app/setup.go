@@ -2,12 +2,14 @@ package app
 
 import (
 	"fmt"
+	"image/color"
 	"log"
 	"sort"
 	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
@@ -30,6 +32,7 @@ type GroupieApp struct {
 }
 
 func (ga *GroupieApp) Run() {
+	var fullS = false
 	a := app.New()
 	ga.window = a.NewWindow("Groupie Tracker")
 	ga.window.Resize(fyne.NewSize(1000, 800))
@@ -200,12 +203,21 @@ func (ga *GroupieApp) Run() {
 		),
 	)
 
+	fullscreen := widget.NewButtonWithIcon("", theme.ViewFullScreenIcon(), func() {
+		if fullS {
+			ga.window.SetFullScreen(false)
+			fullS = false
+		} else {
+			ga.window.SetFullScreen(true)
+			fullS = true
+		}
+	})
+
+	txt := canvas.NewText("Tracker", color.Transparent)
+
 	header := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
 		container.NewVBox(
-			container.NewVBox(
-				label,
-				container.NewBorder(nil, nil, nil, themeButton),
-			),
+			container.NewHBox(txt, layout.NewSpacer(), label, layout.NewSpacer(), themeButton, fullscreen), // fullscreen
 			filterMember,
 			cityLabelContainer,
 			sliderLabelContainer,
