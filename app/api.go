@@ -1,3 +1,5 @@
+// Code by Alexy HOUBLOUP
+
 package app
 
 import (
@@ -33,10 +35,7 @@ var cache = &apiCache{
 func fetchArtists() ([]Artist, error) {
 	var artists []Artist
 
-	fmt.Println("Fetching artists...")
-
 	if artists, ok := cache.artistsCache["artists"]; ok {
-		fmt.Println("Artists found in cache.")
 		return artists, nil
 	}
 
@@ -58,17 +57,13 @@ func fetchArtists() ([]Artist, error) {
 
 	cache.artistsCache["artists"] = artists
 
-	fmt.Println("Artists fetched successfully.")
-
 	return artists, nil
 }
 
 // fetchLocations retrieves the list of locations for a given artist from the API
 func fetchLocations(artistID int) ([]string, error) {
-	fmt.Printf("Fetching locations for artist %d...\n", artistID)
 
 	if locations, ok := cache.locationsCache[artistID]; ok {
-		fmt.Println("Locations found in cache.")
 		return locations, nil
 	}
 
@@ -88,14 +83,11 @@ func fetchLocations(artistID int) ([]string, error) {
 
 	cache.locationsCache[artistID] = locationData.Locations
 
-	fmt.Println("Locations fetched successfully.")
-
 	return locationData.Locations, nil
 }
 
 // fetchArtistsMinMaxCreationDate retrieves the minimum and maximum creation dates of all artists
 func fetchArtistsMinMaxCreationDate() (int, int, error) {
-	fmt.Println("Fetching minimum and maximum creation dates of artists...")
 
 	artists, err := fetchArtists()
 	if err != nil {
@@ -113,8 +105,6 @@ func fetchArtistsMinMaxCreationDate() (int, int, error) {
 			maxCreationDate = artist.CreationDate
 		}
 	}
-
-	fmt.Println("Minimum and maximum creation dates fetched successfully.")
 
 	return minCreationDate, maxCreationDate, nil
 }

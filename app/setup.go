@@ -1,3 +1,5 @@
+// Code by Alexy HOUBLOUP
+
 package app
 
 import (
@@ -107,6 +109,7 @@ func (ga *GroupieApp) Run() {
 
 			country := strings.TrimSpace(strings.ToUpper(parts[1]))
 			city := strings.TrimSpace(strings.ReplaceAll(parts[0], "_", " "))
+			// Deprecated
 			city = strings.Title(city)
 
 			if _, ok := cityMap[country]; !ok {
@@ -185,11 +188,15 @@ func (ga *GroupieApp) Run() {
 	}
 
 	// Create theme button
+
+	// Theme button by Jayanraj rewritten by Alexy HOUBLOUP
 	themeButton := widget.NewButtonWithIcon("", theme.ColorPaletteIcon(), func() {
 		changeColor = !changeColor
 		if changeColor {
+			// Deprecated
 			app.Settings().SetTheme(theme.DarkTheme())
 		} else {
+			// Deprecated
 			app.Settings().SetTheme(theme.LightTheme())
 		}
 

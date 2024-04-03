@@ -1,8 +1,10 @@
+// Code by Alexy HOUBLOUP
+
 package app
 
 import (
+	"fmt"
 	"image/color"
-	"log"
 	"strconv"
 	"strings"
 
@@ -32,7 +34,7 @@ func (ga *GroupieApp) createCard(artist Artist) fyne.CanvasObject {
 	// Load artist image
 	res, err := fyne.LoadResourceFromURLString(artist.Image)
 	if err != nil {
-		log.Printf("Error loading image: %v\n", err)
+		fmt.Println("Error loading image:", err)
 		return nil
 	}
 
@@ -83,7 +85,7 @@ func (ga *GroupieApp) createArtistDetailsTab(artist Artist) fyne.CanvasObject {
 	// Load artist image
 	res, err := fyne.LoadResourceFromURLString(artist.Image)
 	if err != nil {
-		log.Printf("Error loading image: %v\n", err)
+		fmt.Println("Error loading image:", err)
 		return nil
 	}
 
