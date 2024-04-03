@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 
@@ -14,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// GroupieApp struct holds the application window and artists data
 type GroupieApp struct {
 	window             fyne.Window
 	artists            []Artist
@@ -29,32 +29,49 @@ type GroupieApp struct {
 	creationDate       int
 }
 
+var (
+	countries   []string
+	err         error
+	maxMembers  = 0
+	changeColor = false
+	cityMap     = make(map[string]map[string]bool)
+)
+
+// Run launches the Groupie application
 func (ga *GroupieApp) Run() {
-	a := app.New()
-	ga.window = a.NewWindow("Groupie Tracker")
+	// Create a new instance of Fyne application
+	app := app.New()
+	ga.window = app.NewWindow("Groupie Tracker")
 	ga.window.Resize(fyne.NewSize(1000, 800))
 	ga.window.SetFixedSize(true)
 	ga.window.SetIcon(theme.VolumeUpIcon())
 
+	// Create a label for the application title
 	label := widget.NewLabelWithStyle("Groupie Tracker", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	var err error
+	// Create the search field
+	ga.search = widget.NewEntry()
+	ga.search.SetPlaceHolder("Search a group or artist")
+
+	// Labels for filters
+	memberText := widget.NewLabel("Members:")
+	cityLabel := widget.NewLabel("City:")
+	sliderLabel := widget.NewLabel("Creation date:")
+
+	// Fetch artists
 	ga.artists, err = fetchArtists()
 	if err != nil {
-		log.Fatal("Error fetching artists:", err)
+		fmt.Println("Error fetching artists:", err)
 	}
 
-	maxMembers := 0
+	// Find the artist with the most members
 	for _, artist := range ga.artists {
 		if len(artist.Members) > maxMembers {
 			maxMembers = len(artist.Members)
 		}
 	}
 
-	memberText := widget.NewLabel("Members:")
-	cityLabel := widget.NewLabel("City:")
-	sliderLabel := widget.NewLabel("Creation date:")
-
+	// Create checkboxes for the number of members
 	memberCheckboxes := make([]fyne.CanvasObject, maxMembers)
 	for i := 0; i < maxMembers; i++ {
 		num := i + 1
@@ -66,25 +83,25 @@ func (ga *GroupieApp) Run() {
 		})
 	}
 
+	// Create dropdown for cities
 	ga.cityDropdown = widget.NewSelect([]string{"All"}, func(city string) {
 		ga.searchArtists(ga.search.Text)
 	})
 
 	ga.cityDropdown.Selected = "All"
 
-	cityMap := make(map[string]map[string]bool)
-
+	// Fetch locations for each artist
 	for _, artist := range ga.artists {
 		artistLocations, err := fetchLocations(artist.ID)
 		if err != nil {
-			log.Printf("Error fetching locations for artist %s: %v\n", artist.Name, err)
+			fmt.Println("Error fetching locations:", err)
 			continue
 		}
 
 		for _, location := range artistLocations {
 			parts := strings.Split(location, "-")
 			if len(parts) != 2 {
-				log.Printf("Invalid location format: %s\n", location)
+				fmt.Println("Invalid location:", location)
 				continue
 			}
 
@@ -100,12 +117,13 @@ func (ga *GroupieApp) Run() {
 		}
 	}
 
-	var countries []string
+	// Sort countries and cities
 	for country := range cityMap {
 		countries = append(countries, country)
 	}
 	sort.Strings(countries)
 
+	// Add countries and cities to the dropdown and sort them
 	for _, country := range countries {
 		ga.cityDropdown.Options = append(ga.cityDropdown.Options, country)
 
@@ -120,6 +138,7 @@ func (ga *GroupieApp) Run() {
 		}
 	}
 
+	// Update city when dropdown is changed
 	ga.cityDropdown.OnChanged = func(selected string) {
 		cleanedCity := strings.ToLower(strings.TrimSpace(strings.ReplaceAll(selected, "-", "")))
 		cleanedCity = strings.ReplaceAll(cleanedCity, " ", "_")
@@ -129,11 +148,13 @@ func (ga *GroupieApp) Run() {
 		ga.searchArtists(cleanedCity)
 	}
 
+	// Fetch min and max creation date
 	minDate, maxDate, err := fetchArtistsMinMaxCreationDate()
 	if err != nil {
-		log.Fatal("Error fetching min and max creation date:", err)
+		fmt.Println("Error fetching min and max creation date:", err)
 	}
 
+	// Create button to select all dates or specific date
 	ga.creationDateToggle = widget.NewCheck("All", func(checked bool) {
 		if !checked {
 			sliderLabel.SetText(fmt.Sprintf("Creation date: %d", minDate))
@@ -144,26 +165,16 @@ func (ga *GroupieApp) Run() {
 			ga.searchArtists("")
 		}
 	})
+
 	ga.creationDateToggle.Checked = true
 
-	changeColor := false
-
-	themeButton := widget.NewButtonWithIcon("", theme.ColorPaletteIcon(), func() {
-		changeColor = !changeColor
-		if changeColor {
-			a.Settings().SetTheme(theme.DarkTheme())
-		} else {
-			a.Settings().SetTheme(theme.LightTheme())
-		}
-
-		ga.window.SetContent(ga.tabs)
-	})
-
+	// Create slider for creation date
 	ga.creationDateSlider = widget.NewSlider(float64(minDate), float64(maxDate))
 
 	ga.creationDateSlider.SetValue(float64(minDate))
 	sliderLabel.SetText(fmt.Sprintf("Creation date: %d", minDate))
 
+	// Update creation date when slider is changed
 	ga.creationDateSlider.OnChanged = func(value float64) {
 		sliderLabel.SetText(fmt.Sprintf("Creation date: %.0f", value))
 		ga.creationDateToggle.Checked = false
@@ -173,13 +184,24 @@ func (ga *GroupieApp) Run() {
 		ga.searchArtists(valueStr)
 	}
 
-	ga.search = widget.NewEntry()
-	ga.search.SetPlaceHolder("Search a group or artist")
+	// Create theme button
+	themeButton := widget.NewButtonWithIcon("", theme.ColorPaletteIcon(), func() {
+		changeColor = !changeColor
+		if changeColor {
+			app.Settings().SetTheme(theme.DarkTheme())
+		} else {
+			app.Settings().SetTheme(theme.LightTheme())
+		}
 
+		ga.window.SetContent(ga.tabs)
+	})
+
+	// UI layout
 	ga.suggestionsBox = container.NewVBox()
 
 	membersGroup := container.NewHBox(memberCheckboxes...)
 
+	// Create labels and containers for sliders
 	sliderLabelContainer := container.New(layout.NewVBoxLayout(),
 		container.NewHBox(
 			sliderLabel,
@@ -188,11 +210,13 @@ func (ga *GroupieApp) Run() {
 		ga.creationDateSlider,
 	)
 
+	// Create labels and containers for dropdowns
 	cityLabelContainer := container.New(layout.NewHBoxLayout(),
 		cityLabel,
 		ga.cityDropdown,
 	)
 
+	// Create filter member container with member checkboxes
 	filterMember := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
 		container.NewHBox(
 			memberText,
@@ -200,6 +224,7 @@ func (ga *GroupieApp) Run() {
 		),
 	)
 
+	// Create header with search entry, theme button, and filter member container
 	header := container.New(layout.NewBorderLayout(nil, nil, nil, nil),
 		container.NewVBox(
 			container.NewVBox(
@@ -230,12 +255,11 @@ func (ga *GroupieApp) Run() {
 
 	ga.window.SetContent(ga.tabs)
 
+	// Set search suggestions
 	ga.search.OnChanged = ga.updateSuggestions
-
 	ga.search.OnSubmitted = ga.searchArtists
-
 	ga.checkedMembers = make(map[int]bool)
 
+	// Launch the application
 	ga.window.ShowAndRun()
-
 }

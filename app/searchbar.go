@@ -10,37 +10,46 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// searchArtists filters artists based on the search query and updates the display
 func (ga *GroupieApp) searchArtists(query string) {
 	if query == "all" {
 		query = ""
 	}
 
+	// Reset city filter if query is empty
 	if query == "" {
 		ga.cityDropdown.Selected = "All"
 	}
 
+	// Filter artist cards
 	filteredCards := ga.filterCards(query)
 
+	// If no results found, display appropriate message
 	if len(filteredCards) == 0 {
-		noResultsLabel := widget.NewLabel("Aucun résultat trouvé pour la recherche : " + query)
+		noResultsLabel := widget.NewLabel("No results found for search: " + query)
 		ga.content.Objects[1] = noResultsLabel
 		ga.content.Refresh()
 		ga.search.SetText("")
 		return
 	}
+
+	// Update content with filtered cards
 	filteredContent := container.NewVScroll(container.NewGridWithColumns(3, filteredCards...))
 	ga.content.Objects[1] = filteredContent
 	ga.content.Refresh()
 	ga.search.SetText("")
 }
 
+// updateSuggestions updates the suggestions box based on the search query
 func (ga *GroupieApp) updateSuggestions(query string) {
 	ga.suggestionsBox.Objects = nil
 	var filtered []Artist
 
 	if query != "" {
+		// Convert query to integer (if numeric)
 		queryInt, err := strconv.Atoi(query)
 
+		// Filter artists based on query
 		for _, artist := range ga.artists {
 			if strings.Contains(strings.ToLower(artist.Name), strings.ToLower(query)) {
 				filtered = append(filtered, artist)
@@ -53,6 +62,7 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 				}
 			}
 
+			// Filter by creation date if query is a number
 			if err == nil && artist.CreationDate == queryInt {
 				filtered = append(filtered, artist)
 			}
@@ -62,8 +72,8 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 			}
 		}
 
+		// Other filters based on city and members
 		citySelected := ga.city != "all"
-
 		allUnchecked := true
 		for _, checked := range ga.checkedMembers {
 			if checked {
@@ -72,6 +82,7 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 			}
 		}
 
+		// Add suggestions based on filters
 		for _, item := range filtered {
 			if len(ga.suggestionsBox.Objects) >= 5 {
 				break
@@ -80,7 +91,7 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 			if allUnchecked || ga.checkedMembers[len(item.Members)] || !citySelected {
 				loc, err := fetchLocations(item.ID)
 				if err != nil {
-					fmt.Println("Erreur lors de la récupération des emplacements pour l'artiste", item.Name, ":", err)
+					fmt.Println("Error fetching locations for artist", item.Name, ":", err)
 					continue
 				}
 
@@ -103,6 +114,7 @@ func (ga *GroupieApp) updateSuggestions(query string) {
 	}
 }
 
+// containsLocation checks if the artist or group has a location that contains the city
 func containsLocation(locations []string, city string) bool {
 	for _, loc := range locations {
 		if strings.Contains(strings.ToLower(loc), strings.ToLower(city)) {
@@ -112,13 +124,14 @@ func containsLocation(locations []string, city string) bool {
 	return false
 }
 
+// filterArtistByLocation filters artists based on the location
 func (ga *GroupieApp) filterArtistByLocation(location string) []Artist {
 	var filtered []Artist
 
 	for _, artist := range ga.artists {
 		locations, err := fetchLocations(artist.ID)
 		if err != nil {
-			fmt.Println("Erreur lors de la récupération des emplacements pour l'artiste", artist.Name, ":", err)
+			fmt.Println("Error fetching locations for artist", artist.Name, ":", err)
 			continue
 		}
 		for _, loc := range locations {
@@ -132,6 +145,7 @@ func (ga *GroupieApp) filterArtistByLocation(location string) []Artist {
 	return filtered
 }
 
+// filterCards filters cards based on the query
 func (ga *GroupieApp) filterCards(query string) []fyne.CanvasObject {
 	var filtered []fyne.CanvasObject
 	queryLower := strings.ToLower(query)
